@@ -7,6 +7,10 @@ import unittest as _unittest
 # Local application imports
 from des import *
 
+#
+# Unit tests
+#
+
 class TestMethods(_unittest.TestCase):
     """Unit tests for 'des' module
     """
