@@ -5,7 +5,6 @@ Generic functions working on strings containing only '0', '1', ' ', and '_' char
 
 # Standard library imports
 import math as _math
-import unittest as _unittest
 
 # Third party imports
 
@@ -14,6 +13,9 @@ import unittest as _unittest
 
 def clean(bstr_in: str, command_name='()', bstr_name='') -> str:
     """clean():
+
+    - Removes '_' characters
+    - Raises exceptions on illegal characters
     """
     bstr_out = ''
     for bit in bstr_in:

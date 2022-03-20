@@ -4,12 +4,10 @@ Generic functions working on strings
 """
 
 # Standard library imports
-import unittest as _unittest
 
 # Third party imports
 
 # Local application imports
-
 
 def perm(str_in, permutation):
     """perm():
@@ -37,16 +35,23 @@ def lcs(str_in, shift):
 def to_ascii(str_in):
     return ''.join([F"{ord(c):02X}" for c in str_in])
 
-#
-# Unit tests
-#
+def clean (str_in: str, keep_char = '', remove_char = '', command_name='()', str_name='') -> str:
+    """clean(str)
 
+    - Removes '_' characters
+    - Raises exceptions on illegal characters
+    """
+    str_out = ''
+    for nibble in str_in:
+        if nibble in keep_char:
+            str_out += nibble
+        elif nibble in remove_char:
+            pass
+        else:
+            if str_name == '':
+                raise TypeError(F"{command_name}: Unknown nibble: {nibble}")
+            else:
+                raise TypeError(
+                    F"{command_name}: Unknown nibble in {str_name}: {nibble}")
 
-class _TestMethods(_unittest.TestCase):
-    def test_perm(self):
-        self.assertEqual(perm('FEDCBA9876543210', [
-                         16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]), '0123456789ABCDEF')
-
-
-if __name__ == '__main__':
-    _unittest.main()
+    return str_out

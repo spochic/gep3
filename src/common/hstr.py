@@ -11,29 +11,16 @@ Generic functions working on strings containing only
 # Third party imports
 
 # Local application imports
-
+from common.str import clean as _clean
 
 def clean(hstr_in: str, command_name='()', hstr_name='') -> str:
     """clean(hstr)
 
     - Capitalizes hexadecimal digits
-    - Removes ' ' and '_' characters
-    - Raises exceptions on not allowed characters
+    - Removes '_' characters
+    - Raises exceptions on illegal characters
     """
-    hstr_out = ''
-    for nibble in hstr_in:
-        if nibble in '0123456789ABCDEFabcdef':
-            hstr_out += nibble.capitalize()
-        elif nibble in ' _':
-            pass
-        else:
-            if hstr_name == '':
-                raise TypeError(F"{command_name}: Unknown nibble: {nibble}")
-            else:
-                raise TypeError(
-                    F"{command_name}: Unknown nibble in {hstr_name}: {nibble}")
-
-    return hstr_out
+    return _clean(hstr_in, '0123456789ABCDEFabcdef', '_', command_name, hstr_name).upper()
 
 
 def to_bitstr(hstr: str, command_name='()', hstr_name='') -> str:
