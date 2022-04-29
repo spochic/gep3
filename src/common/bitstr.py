@@ -1,6 +1,6 @@
 """bitstr.py
 
-Generic functions working on strings containing only '0', '1', ' ', and '_' characters
+Generic functions working on strings containing only '0', '1', and '_' characters
 """
 
 # Standard library imports

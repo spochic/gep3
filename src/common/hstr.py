@@ -3,7 +3,7 @@
 Generic functions working on strings containing only
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
     'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f',
-    ' ', and '_' characters
+    and '_' characters
 """
 
 # Standard library imports
@@ -68,7 +68,7 @@ def to_dec(hstr: str, command_name='()', hstr_name='') -> int:
     return int(clean(hstr, command_name, hstr_name), 16)
 
 
-def to_intlist(hstr: str, command_name='()', hstr_name='') -> []:
+def to_intlist(hstr: str, command_name='()', hstr_name=''):
     """to_intlist():
     """
     hstr = clean(hstr, command_name, hstr_name)
