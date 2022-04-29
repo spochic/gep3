@@ -7,7 +7,7 @@ import unittest as _unittest
 # Third party imports
 
 # Local application imports
-from hstr import * 
+from common.hstr import * 
 
 #
 # Unit tests

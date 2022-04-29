@@ -7,7 +7,7 @@ import unittest as _unittest
 # Third party imports
 
 # Local application imports
-from bitstr import *
+from common.bitstr import *
 
 #
 # Unit tests

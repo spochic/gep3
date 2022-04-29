@@ -5,7 +5,7 @@
 import unittest as _unittest
 
 # Local application imports
-from des import *
+from crypto.des import *
 
 #
 # Unit tests

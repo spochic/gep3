@@ -7,7 +7,7 @@ import unittest as _unittest
 # Third party imports
 
 # Local application imports
-from str import *
+from common.str import *
 
 #
 # Unit tests
