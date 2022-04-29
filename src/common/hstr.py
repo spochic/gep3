@@ -68,7 +68,7 @@ def to_dec(hstr: str, command_name='()', hstr_name='') -> int:
     return int(clean(hstr, command_name, hstr_name), 16)
 
 
-def to_intlist(hstr: str, command_name='()', hstr_name=''):
+def to_intlist(hstr: str, command_name='()', hstr_name='') -> list[int]:
     """to_intlist():
     """
     hstr = clean(hstr, command_name, hstr_name)
