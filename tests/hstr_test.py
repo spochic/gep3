@@ -38,6 +38,9 @@ class _TestMethods(_unittest.TestCase):
     def test_xor(self):
         self.assertEqual(xor('5', 'b'), 'E')
 
+    def test_and_(self):
+        self.assertEqual(and_('5', 'b'), '1')
+
     def test_not(self):
         self.assertEqual(not_hstr('5'), 'A')
 

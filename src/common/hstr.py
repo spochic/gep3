@@ -49,6 +49,20 @@ def xor(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
 
     return xor_hstr
 
+def and_(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
+    """and_(hstr_a, hstr_b):
+    """
+    hstr_a = clean(hstr_a, command_name, hstr_name)
+    hstr_b = clean(hstr_b, command_name, hstr_name)
+    length = max(len(hstr_a), len(hstr_b))
+    hstr_a = hstr_a.rjust(length, '0')
+    hstr_b = hstr_b.rjust(length, '0')
+    and_hstr = ''
+
+    for (nibble_a, nibble_b) in zip(hstr_a, hstr_b):
+        and_hstr += F"{int(nibble_a, 16)&int(nibble_b, 16):X}"
+
+    return and_hstr
 
 def not_hstr(hstr_in: str, command_name='()', hstr_name='') -> str:
     """not(hstr):
