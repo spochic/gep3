@@ -22,13 +22,6 @@ jobs:
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
 
-      # Install the package using the setup.py
-      - name: Install package
-        run: python -c "from setuptools import setup; setup()" install
-
-      - name: Run unit tests
-        run: python -m unittest discover --pattern "*_test.py"
-
       - name: Build a binary wheel and a source tarball
         run: >-
           python -m
