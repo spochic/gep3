@@ -1,5 +1,4 @@
 name: Publish GEP3 release to PyPI and TestPyPI
-
 on: push
 
 jobs:
@@ -18,8 +17,18 @@ jobs:
           pip install
           build
           --user
+
+      # Display the Python version being used
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+
+      # Install the package using the setup.py
+      - name: Install package
+        run: python setup.py install
+
       - name: Run unit tests
         run: python -m unittest discover --pattern "*_test.py"
+
       - name: Build a binary wheel and a source tarball
         run: >-
           python -m
