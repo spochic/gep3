@@ -40,6 +40,7 @@ def parse(hstr: str, recursive=True):
 def find(tag, object):
     """find: finds a specific tag in a list of objects
     """
+    tag = _hstr.clean(tag)
     if isinstance(object, tuple):
         return _find_in_tuple(tag, object)
     elif isinstance(object, list):
