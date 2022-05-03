@@ -46,7 +46,7 @@ def find(tag, object):
     elif isinstance(object, list):
         return _find_in_list(tag, object)
     else:
-        return ('','','')
+        return None
 
 
 
@@ -55,17 +55,20 @@ def find(tag, object):
 #
 
 def _find_in_tuple(tag, object):
-    T, L, V = object
+    T, _, V = object
     if T == tag:
         return object
+    elif isinstance(V, list):
+        return _find_in_list(tag, V)
     else:
-        return find(tag, V)
+        return None
 
 def _find_in_list(tag, object_list):
     for object in object_list:
-        r = find(tag, object)
-        if r != ('','',''):
+        r = _find_in_tuple(tag, object)
+        if r is not None:
             return r
+    return None
 
 def _is_tag_constructed(tag: str) -> bool:
     return _hstr.and_(tag[0:2], '20') == '20'
