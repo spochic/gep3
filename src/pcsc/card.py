@@ -213,6 +213,7 @@ def send_apdu(card_service: _CardService, apdu: dict, trace=None):
 def _send_apdu_T0_case_1(card_service: _CardService, header: str, trace=None):
     """send_apdu_T0_case_1():
     """
+    _trace(trace, "Case 1 Command (T=0)")
     return transmit(card_service.connection, header, trace)
 
 
@@ -226,6 +227,7 @@ def _send_apdu_T0_case_2s(card_service: _CardService, header: str, Le: str, trac
     else:
         return ['', '', ''], 'Wrong Le value' + Le
 
+    _trace(trace, "Case 2 Command (T=0)")
     [data, SW1, SW2], _ = transmit(card_service, header + Le, trace)
     # Case 2S.1—Process completed: Ne accepted
     if SW1+SW2 == '9000':
@@ -253,6 +255,7 @@ def _send_apdu_T0_case_3s(card_service: _CardService, header: str, Lc: str, data
     else:
         return ['', '', ''], "Data field too long: " + Lc
 
+    _trace(trace, "Case 3 Command (T=0)")
     return transmit(card_service, header + Lc + data, trace)
 
 
@@ -273,6 +276,7 @@ def _send_apdu_T0_case_4s(card_service: _CardService, header: str, Lc: str, data
     else:
         return ['', '', ''], 'Wrong Le value' + Le
 
+    _trace(trace, "Case 4 Command (T=0)")
     [data, SW1, SW2], _ = transmit(card_service, header + Lc + data + Le, trace)
     # Case 4S.1—Process aborted
     if SW1[0] == '6' and SW1[1] in '0456789ABCDEF':
@@ -280,7 +284,7 @@ def _send_apdu_T0_case_4s(card_service: _CardService, header: str, Lc: str, data
     # Case 4S.2—Process completed
     if SW1+SW2 == '9000':
         # Send GET RESPONSE
-        return _send_apdu_T0_case_2s(conncard_serviceection, header[0:2] + 'C00000', Le, trace)
+        return _send_apdu_T0_case_2s(card_service, header[0:2] + 'C00000', Le, trace)
     # Case 4S.3—Process completed with information added
     if SW1 == '61':
         if Le == '00':
