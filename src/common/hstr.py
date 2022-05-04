@@ -107,3 +107,14 @@ def minimum(hstr_a: str, hstr_b: str) -> str:
         return hstr_a
 
     return hstr_b
+
+def split_by_length(hstr:str, length:int) -> list[str]:
+    """split_by(): 
+    """
+    if len(hstr) % length != 0:
+        # Error if the string is not a multiple of the length divider
+        return []
+    
+    nr_splits = len(hstr)//length
+
+    return [hstr[i:i+length] for i in range(nr_splits)]
