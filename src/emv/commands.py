@@ -6,16 +6,19 @@
 # Third party imports
 
 # Local application imports
+from common.ber import encode_length as length
+
 
 def SELECT(aid: str) -> dict:
     """SELECT(): generate APDU for SELECT command
     """
-    return {'header' : '00A40400', 'data' : aid, 'Le' : '00'}
+    known_aid_list = {'MASTERCARD' : 'A0000000041010', 'MAESTRO' : 'A00000000410103060', 'VISA' : 'A0000000031010'}
+    return {'header' : '00A40400', 'data' : known_aid_list.get(aid, aid), 'Le' : '00'}
 
-def GET_PROCESSING_OPTIONS(pdol: str) -> dict:
+def GET_PROCESSING_OPTIONS(pdol: str = '') -> dict:
     """GET_PROCESSING_OPTIONS(): generate APDU for GET PROCESSING OPTIONS command
     """
-    return {'header' : '80A80000', 'data' : pdol, 'Le' : '00'}
+    return {'header' : '80A80000', 'data' : F'83{length(pdol)}{pdol}', 'Le' : '00'}
 
 def GPO(pdol: str) -> dict:
     """GPO(): generate APDU for GET PROCESSING OPTIONS command
