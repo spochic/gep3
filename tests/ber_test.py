@@ -6,7 +6,7 @@ import unittest as _unittest
 # Third party imports
 
 # Local application imports
-from common.ber import _decode_tag, _decode_length, _decode_value, parse, find
+from common.ber import _decode_tag, _decode_length, _decode_value, parse, find, encode_length
 
 class _TestMethods(_unittest.TestCase):
     def test__decode_tag(self):
@@ -26,7 +26,7 @@ class _TestMethods(_unittest.TestCase):
 
     def test__decode_value(self):
         self.assertEqual(_decode_value('10', '8408A000000003000000A5049F6501FF'), ('8408A000000003000000A5049F6501FF', ''))
-        self.assertEqual(_decode_value('8180', '0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF'), ('0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF', ''))
+        self.assertEqual(_decode_value('8180', '0123456789ABCDEF' * 16), ('0123456789ABCDEF' * 16, ''))
         self.assertEqual(_decode_value('10', '8408A0'), ('', '8408A0'))
         self.assertEqual(_decode_value('80', '0123456789ABCDEF0000'), ('0123456789ABCDEF', ''))
 
@@ -61,6 +61,10 @@ class _TestMethods(_unittest.TestCase):
                              ('A5', '04', [('9F65', '01', 'FF')]))
         self.assertEqual(find('9F65', [('6F', '10', [('84', '08', 'A000000003000000'), ('A5', '04', [('9F65', '01', 'FF')])])]),
                              ('9F65', '01', 'FF'))
+
+    def test_encode_length(self):
+        self.assertEqual(encode_length('A0000000041010'), '07')
+        self.assertEqual(encode_length('0123456789ABCDEF' * 16), '8180')
 
 
 if __name__ == '__main__':

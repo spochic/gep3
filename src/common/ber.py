@@ -55,6 +55,29 @@ def find(tag, tlv_object):
     else:
         return None
 
+def encode_length(data: str):
+    """encode_length(): encode length of 'data' per BER-TLV encoding rules
+    """
+    data = _hstr.clean(data, command_name='encode_length')
+    nr_nibbles = len(data)
+    nr_bytes = nr_nibbles//2
+
+    if nr_nibbles % 2 != 0:
+        # Error if input data is not an even number of nibbles (i.e., integer number of bytes)
+        return None
+    elif nr_bytes <= 127:
+        # Definite length, short format
+        return F"{nr_bytes:02X}"
+    else:
+        # Definite length, long format
+        l_value = F"{nr_bytes:X}"
+        if len(l_value) % 2 != 0:
+            # Left pad with 0 to have even number of nibbles
+            l_value = F"0{l_value}"
+        
+        l_header = F"{128+len(l_value)//2:02X}"
+
+        return F"{l_header}{l_value}"
 #
 # Helper functions (assume a clean 'hstr' as input)
 #
