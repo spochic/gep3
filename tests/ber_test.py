@@ -6,7 +6,7 @@ import unittest as _unittest
 # Third party imports
 
 # Local application imports
-from common.ber import _decode_tag, _decode_length, _decode_value, parse, find, encode_length
+from common.ber import _decode_tag, _decode_length, _decode_value, parse, parse_dol, find, encode_length
 
 class _TestMethods(_unittest.TestCase):
     def test__decode_tag(self):
@@ -65,6 +65,9 @@ class _TestMethods(_unittest.TestCase):
     def test_encode_length(self):
         self.assertEqual(encode_length('A0000000041010'), '07')
         self.assertEqual(encode_length('0123456789ABCDEF' * 16), '8180')
+
+    def test_parse_dol(self):
+        self.assertEqual(parse_dol('9F1A02'), ([('9F1A', '02')], ''))
 
 
 if __name__ == '__main__':

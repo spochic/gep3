@@ -44,6 +44,28 @@ def parse_to_dict(tlv_hstr: str):
 
     return _tlv_object_list_to_dict(tlv_object_list)
 
+def parse_dol(tlv_hstr: str):
+    """parse_dol():
+    """
+    remainder = _hstr.clean(tlv_hstr)
+    output = []
+    while remainder != '':
+        # Ignoring 00 bytes before or after TLV objects
+        while remainder[0:2] == '00':
+            remainder = remainder[2:]
+
+        T, remainder = _decode_tag(remainder)
+        if T == '':
+            break
+
+        L, remainder = _decode_length(remainder)
+        if L == '':
+            break
+
+        output.append((T, L))
+
+    return (output, remainder)
+
 def find(tag, tlv_object):
     """find: finds a specific tag in a list of objects
     """
