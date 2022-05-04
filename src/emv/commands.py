@@ -7,6 +7,7 @@
 
 # Local application imports
 from common.ber import encode_length as length
+from common.ber import encode
 
 
 def SELECT(aid: str) -> dict:
@@ -18,7 +19,7 @@ def SELECT(aid: str) -> dict:
 def GET_PROCESSING_OPTIONS(pdol: str = '') -> dict:
     """GET_PROCESSING_OPTIONS(): generate APDU for GET PROCESSING OPTIONS command
     """
-    return {'header' : '80A80000', 'data' : F'83{length(pdol)}{pdol}', 'Le' : '00'}
+    return {'header' : '80A80000', 'data' : encode('83', pdol), 'Le' : '00'}
 
 def GPO(pdol: str) -> dict:
     """GPO(): generate APDU for GET PROCESSING OPTIONS command

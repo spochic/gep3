@@ -78,6 +78,16 @@ def encode_length(data: str):
         l_header = F"{128+len(l_value)//2:02X}"
 
         return F"{l_header}{l_value}"
+
+def encode(tag: str, data: str) -> str:
+    """encode(): encode tag and data into BER-TLV object
+    """
+    tag = _hstr.clean(tag)
+    data = _hstr.clean(data)
+
+    return F"{tag}{encode_length(data)}{data}"
+
+
 #
 # Helper functions (assume a clean 'hstr' as input)
 #
