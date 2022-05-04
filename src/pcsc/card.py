@@ -4,7 +4,6 @@
 # Standard library imports
 
 # Third party imports
-from codecs import getreader
 from smartcard import CardType as _CardType
 from smartcard.CardRequest import CardRequest as _CardRequest
 from smartcard.Exceptions import CardRequestTimeoutException as _CardRequestTimeoutException
@@ -96,7 +95,7 @@ def connect(atr=None,
 
 
 def get_reader(card_service: _CardService) -> str:
-    """getReader()
+    """get_Reader()
     """
     return card_service.connection.getReader()
 
