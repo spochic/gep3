@@ -6,6 +6,8 @@
 # Third party imports
 
 # Local application imports
+from common import ber as _ber
+
 
 tlv = {
     '42' : 'Issuer Identification Number',
@@ -310,7 +312,16 @@ def Track2(tlv_objects_list):
     return tlv_objects_list.get('57', None)
 
 def get_object(object_name: str, tlv_objects_list):
+    """get_object():
+    """
     return tlv_objects_list.get(tlv[object_name], None)
+
+def PDOL_data(pdol: str, tlv_objects_list):
+    """PDOL_data():
+    """
+    pdol , _ = _ber.parse_dol(pdol)
+    return ''.join(map(lambda o: tlv_objects_list[o[0]], pdol))
+
 
 #
 # Helper functions (assume a clean 'hstr' as input)
