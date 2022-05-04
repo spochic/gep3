@@ -7,10 +7,10 @@
 # Local application imports
 from common import hstr as _hstr
 
-def parse(hstr: str, recursive=True):
+def parse(tlv_hstr: str, recursive=True):
     """parse: Parses a TLV string into a (nested) list of (T,L,V) tuples and a remainder string
     """
-    remainder = _hstr.clean(hstr)
+    remainder = _hstr.clean(tlv_hstr)
     output = []
     while remainder != '':
         # Ignoring 00 bytes before or after TLV objects
@@ -37,35 +37,40 @@ def parse(hstr: str, recursive=True):
 
     return (output, remainder)
 
-def find(tag, object):
+def parse_to_dict(tlv_hstr: str):
+    """
+    """
+    tlv_object_list, remainder = parse(tlv_hstr, recursive=True)
+
+    return _tlv_object_list_to_dict(tlv_object_list)
+
+def find(tag, tlv_object):
     """find: finds a specific tag in a list of objects
     """
     tag = _hstr.clean(tag)
-    if isinstance(object, tuple):
-        return _find_in_tuple(tag, object)
-    elif isinstance(object, list):
-        return _find_in_list(tag, object)
+    if isinstance(tlv_object, tuple):
+        return _find_in_tuple(tag, tlv_object)
+    elif isinstance(tlv_object, list):
+        return _find_in_list(tag, tlv_object)
     else:
         return None
-
-
 
 #
 # Helper functions (assume a clean 'hstr' as input)
 #
 
-def _find_in_tuple(tag, object):
-    T, _, V = object
+def _find_in_tuple(tag, tlv_object):
+    T, _, V = tlv_object
     if T == tag:
-        return object
+        return tlv_object
     elif isinstance(V, list):
         return _find_in_list(tag, V)
     else:
         return None
 
-def _find_in_list(tag, object_list):
-    for object in object_list:
-        r = _find_in_tuple(tag, object)
+def _find_in_list(tag, tlv_object_list):
+    for tlv_object in tlv_object_list:
+        r = _find_in_tuple(tag, tlv_object)
         if r is not None:
             return r
     return None
@@ -156,3 +161,15 @@ def _decode_value(length: str, data: str) -> tuple[str, str]:
             return ('', data)
         else:
             return (data[0:2*nr_bytes], data[2*nr_bytes:])
+
+def _tlv_object_list_to_dict(tlv_object_list):
+    tags_to_ignore = ['6F', '70', '77', 'A5']
+    tlv_object_dict = {}
+
+    for (T, L, V) in tlv_object_list:
+        if T not in tags_to_ignore:
+            tlv_object_dict[T] = V
+        if isinstance(V, list):
+            tlv_object_dict.update(_tlv_object_list_to_dict(V))
+    
+    return tlv_object_dict
