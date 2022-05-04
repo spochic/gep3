@@ -117,4 +117,4 @@ def split_by_length(hstr:str, length:int) -> list[str]:
     
     nr_splits = len(hstr)//length
 
-    return [hstr[i:i+length] for i in range(nr_splits)]
+    return [hstr[i*length:(i+1)*length] for i in range(nr_splits)]
