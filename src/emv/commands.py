@@ -26,3 +26,8 @@ def READ_RECORD(SFI:int, record:int) -> dict:
     """READ_RECORD(): generate APDU for READ RECORD command
     """
     return {'CLA' : '00', 'INS' : 'B2', 'P1' : F"{record:02X}", 'P2' : F"{SFI*8+4:02X}", 'Le' : '00'}
+
+def GET_DATA(tag: str) -> dict:
+    """GET_DATA: generate APDU for GET DATA command
+    """
+    return {'header' : '80CA' + tag, 'Le' : '00'}
