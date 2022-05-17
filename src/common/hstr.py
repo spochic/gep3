@@ -118,3 +118,15 @@ def split_by_length(hstr:str, length:int) -> list[str]:
     nr_splits = len(hstr)//length
 
     return [hstr[i*length:(i+1)*length] for i in range(nr_splits)]
+
+def dscan_decimalize(hstr: str) -> str:
+    """dscan_decimalize(): double scan decimalization
+    """
+    dstr = ''
+    for h in clean(hstr):
+        if h.isdigit():
+            dstr = dstr + h
+        else:
+            dstr = dstr + F"{int(h, 16)-10}"
+
+    return dstr
