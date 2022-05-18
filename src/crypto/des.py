@@ -299,6 +299,26 @@ def kcv(key_h: str) -> str:
     """
     return encrypt(key_h, '00' * 8)[0:6]
 
+def mac_1_e(key_h: str, hstr: str):
+    """mac_1_e(): single DES MAC generation
+    """
+    temp = '0' * 16
+    for i in range(len(hstr)/16):
+        block = hstr[i*16:i*16+16]
+        temp = dea_e(key_h, _hstr.xor(temp, block))
+    return temp
+
+def mac_2_ede(key_h: str, hstr: str):
+    """mac_2_ede(): double DES MAC generation
+    """
+    key__key_1 = key_h[0:16]
+    key__key_2 = key_h[16:32]
+    
+    mac = mac_1_e(key__key_1, hstr)
+    mac = dea_d(key__key_2, mac)
+    mac = dea_e(key__key_1, mac)
+    
+    return mac
 
 #
 # DEA inner functions
