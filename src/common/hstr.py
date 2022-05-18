@@ -126,10 +126,8 @@ def dscan_decimalize(hstr: str) -> str:
     dstr2 = ''
     for h in clean(hstr):
         if h.isdigit():
-            print(F"{h} is a digit")
             dstr1 = dstr1 + h
         else:
-            print(F"{h} is not a digit")
             dstr2 = dstr2 + F"{int(h, 16)-10}"
 
     return dstr1 + dstr2
