@@ -122,11 +122,14 @@ def split_by_length(hstr:str, length:int) -> list[str]:
 def dscan_decimalize(hstr: str) -> str:
     """dscan_decimalize(): double scan decimalization
     """
-    dstr = ''
+    dstr1 = ''
+    dstr2 = ''
     for h in clean(hstr):
         if h.isdigit():
-            dstr = dstr + h
+            print(F"{h} is a digit")
+            dstr1 = dstr1 + h
         else:
-            dstr = dstr + F"{int(h, 16)-10}"
+            print(F"{h} is not a digit")
+            dstr2 = dstr2 + F"{int(h, 16)-10}"
 
-    return dstr
+    return dstr1 + dstr2
