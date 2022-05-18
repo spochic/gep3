@@ -302,8 +302,10 @@ def kcv(key_h: str) -> str:
 def mac_1_e(key_h: str, hstr: str):
     """mac_1_e(): single DES MAC generation
     """
+    key_h = _hstr.clean(key_h)
+    hstr = _hstr.clean(hstr)
     temp = '0' * 16
-    for i in range(len(hstr)/16):
+    for i in range(len(hstr)//16):
         block = hstr[i*16:i*16+16]
         temp = dea_e(key_h, _hstr.xor(temp, block))
     return temp
@@ -311,6 +313,8 @@ def mac_1_e(key_h: str, hstr: str):
 def mac_2_ede(key_h: str, hstr: str):
     """mac_2_ede(): double DES MAC generation
     """
+    key_h = _hstr.clean(key_h)
+    hstr = _hstr.clean(hstr)
     key__key_1 = key_h[0:16]
     key__key_2 = key_h[16:32]
     
@@ -400,3 +404,4 @@ def _clean_n_blocks(block_lh_n, length, n=0):
     return block_lh_n
 
 
+print(mac_2_ede('462EC416E0E83C042CD1B10731AB4736', '5413123456784808D12200000000000000000F8000000000'))
