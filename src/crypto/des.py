@@ -402,6 +402,3 @@ def _clean_n_blocks(block_lh_n, length, n=0):
             raise TypeError(F"Wrong block length: 0x{len(block_lh_n):X}h")
 
     return block_lh_n
-
-
-print(mac_2_ede('462EC416E0E83C042CD1B10731AB4736', '5413123456784808D12200000000000000000F8000000000'))
