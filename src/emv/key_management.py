@@ -19,6 +19,6 @@ def master_key_derivation_A(imk, pan, psn = '00'):
     Y = X[-16:]
 
     Zl = des.tdea_2_ede(imk, Y)
-    Zr = des.tdea_2_ede(imk, hstr.not_hstr(Y))
+    Zr = des.tdea_2_ede(imk, hstr.not_(Y))
 
     return Zl + Zr
