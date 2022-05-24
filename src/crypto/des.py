@@ -324,6 +324,16 @@ def mac_2_ede(key_h: str, hstr: str):
     
     return mac
 
+def adjust_parity(key_h: str):
+    """
+    """
+    key_h = _hstr.clean(key_h)
+    if len(key_h) % 16 != 0:
+        return ''
+
+    return ''.join([_adjust_parity_byte(key_h[2*i:2*i+2]) for i in range(len(key_h)//2)])
+
+
 #
 # DEA inner functions
 #
@@ -402,3 +412,10 @@ def _clean_n_blocks(block_lh_n, length, n=0):
             raise TypeError(F"Wrong block length: 0x{len(block_lh_n):X}h")
 
     return block_lh_n
+
+def _adjust_parity_byte(byte_h: str):
+    byte_b = F"{int(byte_h, 16):08b}"
+    if byte_b.count('1') % 2 == 0:
+        return _hstr.xor(byte_h, '01')
+    else:
+        return byte_h

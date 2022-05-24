@@ -69,6 +69,9 @@ class TestMethods(_unittest.TestCase):
             tdea_2_ded_cbc('0123456789ABCDEFFEDCBA9876543210', '00' * 16, '00' * 7)
             tdea_2_ded_cbc('0123456789ABCDEF FEDCBA9876543210', 'FF' * 16, '00' * 8)
 
+    def test_adjust_parity(self):
+        self.assertEqual(adjust_parity('0123456789ABCDEFFEDCBA9876543210'), '0123456789ABCDEFFEDCBA9876543210')
+        self.assertEqual(adjust_parity('462EC416E0E83C04_2CD1B10731AB4736'), '462FC416E0E93D042CD0B00731AB4637')
 
 if __name__ == '__main__':
     _unittest.main()
