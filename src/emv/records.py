@@ -16,7 +16,15 @@ def decode_afl(AFL:str):
         # Error if the AFL is not a multiple of 4 bytes
         return None, "AFL is not a multiple of 4 bytes"
     
-    return list(map(_decode_afl_element, _hstr.split_by_length(AFL, 8)))
+    afl = []
+    for afl_element in _hstr.split_by_length(AFL, 8):
+        r, err = _decode_afl_element(afl_element)
+        if err is not None:
+            return None, err
+        else:
+            afl.append(r)
+    
+    return afl, None
 
 #
 # Helper functions (assume a clean 'hstr' as input)
@@ -47,4 +55,4 @@ def _decode_afl_element(e:str):
         # Error if the number of records used for ODA is greater than the total number of records
         return None, "AFL Byte 4 is greater than total number of records"
     
-    return (SFI, first_record, last_record, oda_records)
+    return (SFI, first_record, last_record, oda_records), None
