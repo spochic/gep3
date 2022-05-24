@@ -22,7 +22,6 @@ def clean(hstr_in: str, command_name='()', hstr_name='') -> str:
     """
     return _clean(hstr_in, '0123456789ABCDEFabcdef', '_', command_name, hstr_name).upper()
 
-
 def to_bitstr(hstr: str, command_name='()', hstr_name='') -> str:
     """to_bitstr(hstr): converts 'hex strings' to 'bit strings'
     """
@@ -33,6 +32,20 @@ def to_bitstr(hstr: str, command_name='()', hstr_name='') -> str:
 
     return bstr
 
+def or_(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
+    """or_(hstr_a, hstr_b):
+    """
+    hstr_a = clean(hstr_a, command_name, hstr_name)
+    hstr_b = clean(hstr_b, command_name, hstr_name)
+    length = max(len(hstr_a), len(hstr_b))
+    hstr_a = hstr_a.rjust(length, '0')
+    hstr_b = hstr_b.rjust(length, '0')
+    or_hstr = ''
+
+    for (nibble_a, nibble_b) in zip(hstr_a, hstr_b):
+        or_hstr += F"{int(nibble_a, 16)|int(nibble_b, 16):X}"
+
+    return or_hstr
 
 def xor(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
     """xor(hstr_a, hstr_b):
@@ -64,7 +77,7 @@ def and_(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
 
     return and_hstr
 
-def not_hstr(hstr_in: str, command_name='()', hstr_name='') -> str:
+def not_(hstr_in: str, command_name='()', hstr_name='') -> str:
     """not(hstr):
     """
     hstr_in = clean(hstr_in, command_name, hstr_name)

@@ -42,7 +42,7 @@ class _TestMethods(_unittest.TestCase):
         self.assertEqual(and_('5', 'b'), '1')
 
     def test_not(self):
-        self.assertEqual(not_hstr('5'), 'A')
+        self.assertEqual(not_('5'), 'A')
 
     def test_to_dec(self):
         self.assertEqual(to_dec('FF_fF'), 65535)
