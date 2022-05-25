@@ -240,6 +240,26 @@ def tdea_2_ded(key_32h: str, block_16h: str) -> str:
     return _bitstr.to_hstr(block_64)
 
 
+def tdea_2_ede_ecb(key_32h: str, block_16h_n: str) -> str:
+    """tdea_2_ede_ecb: Triple DES encryption algorithm in ECB mnode
+    """
+    # cleaning inputs
+    key_32h = _clean_key(key_32h, 32)
+    block_16h_n = _clean_n_blocks(block_16h_n, 16)
+
+    return modes.ecb_encryption(tdea_2_ede, key_32h, block_16h_n)
+
+
+def tdea_2_ded_ecb(key_32h: str, block_16h_n: str) -> str:
+    """tdea_2_ded_ecb: Triple DES decryption algorithm in ECB mode
+    """
+    # cleaning inputs
+    key_32h = _clean_key(key_32h, 32)
+    block_16h_n = _clean_n_blocks(block_16h_n, 16)
+
+    return modes.ecb_decryption(tdea_2_ded, key_32h, block_16h_n)
+
+
 def tdea_2_ede_cbc(key_32h: str, block_16h_n: str, iv_16h: str) -> str:
     """tdea_2_ede_cbc: Triple DES encryption algorithm in CBC mnode
     """
