@@ -22,15 +22,16 @@ def READ_RECORD(card_service: card._CardService, sfi: int, record:int, trace=Non
 def READ_RECORDs(card_service: card._CardService, AFL: str, trace=None):
     output = []
 
-    for (sfi, first, last, _) in records.decode_afl(AFL):
-        for n in range(first, last+1):
-            r, err = READ_RECORD(card_service, sfi, n, trace=trace)
-            output.append((r, err))
-            if err != '':
-                return output
-    
-    return output
-
+    r, err = records.decode_afl(AFL)
+    if err is not None:
+        return []
+    else:
+        for (sfi, first, last, _) in r:
+            for n in range(first, last+1):
+                r, err = READ_RECORD(card_service, sfi, n, trace=trace)
+                output.append((r, err))
+                if err != '':
+                    return output
 
 def GET_DATA(card_service: card._CardService, tag: str, trace=None):
     return card.send_apdu(card_service, command.GET_DATA(tag), trace=trace)
