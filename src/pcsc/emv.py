@@ -32,6 +32,7 @@ def READ_RECORDs(card_service: card._CardService, AFL: str, trace=None):
                 output.append((r, err))
                 if err != '':
                     return output
+        return output
 
 def GET_DATA(card_service: card._CardService, tag: str, trace=None):
     return card.send_apdu(card_service, command.GET_DATA(tag), trace=trace)
