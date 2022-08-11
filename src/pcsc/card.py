@@ -213,7 +213,7 @@ def _send_apdu_T0_case_1(card_service: _CardService, header: str, trace=None):
     """send_apdu_T0_case_1():
     """
     _trace(trace, "Case 1 Command (T=0)")
-    return transmit(card_service.connection, header, trace)
+    return transmit(card_service, header, trace)
 
 
 def _send_apdu_T0_case_2s(card_service: _CardService, header: str, Le: str, trace=None):
