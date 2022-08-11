@@ -314,10 +314,10 @@ def decrypt(key_h: str, block_16h: str) -> str:
         return ''
 
 
-def kcv(key_h: str) -> str:
+def kcv(key_h: str, len = 3) -> str:
     """kcv(): Key Check Value
     """
-    return encrypt(key_h, '00' * 8)[0:6]
+    return encrypt(key_h, '00' * 8)[0:2*len]
 
 def mac_1_e(key_h: str, hstr: str):
     """mac_1_e(): single DES MAC generation
@@ -353,6 +353,21 @@ def adjust_parity(key_h: str):
 
     return ''.join([_adjust_parity_byte(key_h[2*i:2*i+2]) for i in range(len(key_h)//2)])
 
+def combine_keys_xor(combined_kcv: str, components: list) -> str:
+    """combine_keys_xor(): combine two or more key components with kcv checking
+    """
+    combined_key = '00'
+
+    for _value, _kcv in components:
+        if kcv(_value, len(_kcv)//2) != _kcv:
+            return None
+        else:
+            combined_key = _hstr.xor(combined_key,_value)
+
+    if kcv(combined_key, len(combined_kcv)//2) != combined_kcv:
+        return None
+    else:
+        return combined_key
 
 #
 # DEA inner functions
