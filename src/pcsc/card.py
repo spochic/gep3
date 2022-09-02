@@ -20,6 +20,7 @@ from smartcard.CardService import CardService as _CardService
 from smartcard.CardMonitoring import \
     CardMonitor as _CardMonitor,\
     CardObserver as _CardObserver
+from smartcard.System import readers as _readers
 
 # Local application imports
 from common.intlist import to_hstr as _to_hstr
@@ -27,6 +28,7 @@ from common.hstr import \
     to_intlist as _to_intlist,\
     minimum as _min,\
     clean as _clean
+
 
 def connect(atr=None,
             atr_mask=None,
@@ -90,7 +92,8 @@ def connect(atr=None,
     except _CardRequestTimeoutException as err:
         return '', err
     else:
-        _trace(trace, F"Card {get_atr(card_service)} detected on {get_reader(card_service)}")
+        _trace(
+            trace, F"Card {get_atr(card_service)} detected on {get_reader(card_service)}")
         return card_service, ''
 
 
@@ -98,6 +101,12 @@ def get_reader(card_service: _CardService) -> str:
     """get_Reader()
     """
     return card_service.connection.getReader()
+
+
+def list_readers():
+    """list_readers()
+    """
+    return _readers()
 
 
 def get_atr(card_service: _CardService) -> str:
@@ -111,7 +120,7 @@ def get_protocol(card_service: _CardService) -> str:
     """
     return {_CardConnection.T0_protocol: 'T=0',
             _CardConnection.T1_protocol: 'T=1',
-            _CardConnection.T0_protocol&_CardConnection.T1_protocol: 'T=0 and T=1',
+            _CardConnection.T0_protocol & _CardConnection.T1_protocol: 'T=0 and T=1',
             _CardConnection.RAW_protocol: 'RAW'}[card_service.connection.getProtocol()]
 
 
@@ -120,7 +129,8 @@ def transmit(card_service: _CardService, hstr: str, trace=None):
     """
     _trace(trace, F"=>card: {hstr}")
 
-    data, sw1, sw2 = card_service.connection.transmit(_to_intlist(hstr), card_service.connection.getProtocol())
+    data, sw1, sw2 = card_service.connection.transmit(
+        _to_intlist(hstr), card_service.connection.getProtocol())
     data, sw1, sw2 = _to_hstr(data), F"{sw1:02X}", F"{sw2:02X}"
 
     if data == '':
@@ -143,10 +153,10 @@ def send_apdu(card_service: _CardService, apdu: dict, trace=None):
         P1 = _clean(apdu['P1'])
         P2 = _clean(apdu['P2'])
         header = CLA + INS + P1 + P2
-    
+
     data = apdu.get('data', None)
     Le = apdu.get('Le', None)
-    
+
     protocol = get_protocol(card_service)
     if protocol not in ['T=0', 'T=1']:
         return ['', '', ''], 'Unsupported protocol: ' + protocol
@@ -276,7 +286,8 @@ def _send_apdu_T0_case_4s(card_service: _CardService, header: str, Lc: str, data
         return ['', '', ''], 'Wrong Le value' + Le
 
     _trace(trace, "Case 4 Command (T=0)")
-    [data, SW1, SW2], _ = transmit(card_service, header + Lc + data + Le, trace)
+    [data, SW1, SW2], _ = transmit(
+        card_service, header + Lc + data + Le, trace)
     # Case 4S.1—Process aborted
     if SW1[0] == '6' and SW1[1] in '0456789ABCDEF':
         return [data, SW1, SW2], F'Error—Process aborted ({SW1+SW2})'
@@ -307,6 +318,7 @@ def disconnect(card_service: _CardService):
 # Helper functions
 #
 
-def _trace(trace, message:str):
+
+def _trace(trace, message: str):
     if trace is not None:
         trace(message)
