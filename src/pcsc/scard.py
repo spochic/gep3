@@ -109,7 +109,7 @@ def establish_context(scope: Scope):
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to establish context ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
-        raise Exception(err)
+        raise PcscError(err)
 
     logging.debug(F"Context established with scope={scope}")
     return hcontext
@@ -125,7 +125,7 @@ def list_readers(hcontext, readergroups=None):
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to list readers ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
-        raise Exception(err)
+        raise PcscError(err)
 
     logging.debug(F"Readers listed: {', '.join(readers)}")
     return readers
@@ -162,7 +162,7 @@ def reconnect(hcard, share_mode: ShareMode, preferred_protocols: Protocol, initi
     if hresult != _SCARD_S_SUCCESS:
         err = F'Unable to reconnect ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
-        raise Exception(err)
+        raise PcscError(err)
 
     active_protocol = Protocol(dw_active_protocol)
     logging.debug(
@@ -178,7 +178,7 @@ def status(hcard):
     if hresult != _SCARD_S_SUCCESS:
         err = F'Unable to get current reader status ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
-        raise Exception(err)
+        raise PcscError(err)
 
     protocol = Protocol(dw_protocol)
     state = []
@@ -202,7 +202,7 @@ def transmit(hcard, protocol: Protocol, apdu: str):
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to transmit ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
-        raise Exception(err)
+        raise PcscError(err)
 
     response = _to_hstr(response_bytes)
     data = response[0:-4]
@@ -231,7 +231,7 @@ def send_apdu(hcard, protocol: Protocol, apdu: dict):
     Le = apdu.get('Le', None)
 
     if protocol not in Protocol:
-        raise Exception(F'Unsupported protocol: {protocol}')
+        raise PcscError(F'Unsupported protocol: {protocol}')
 
     if data is None:
         # Case 1
@@ -253,7 +253,7 @@ def send_apdu(hcard, protocol: Protocol, apdu: dict):
         logging.debug("Case 2E")
         if len(Le) == 6:
             if protocol == Protocol.T0:
-                raise Exception('Unsupported case 2E with protocol T=0')
+                raise PcscError('Unsupported case 2E with protocol T=0')
             if protocol == Protocol.T1:
                 return transmit(hcard, protocol, header + Le)
 
@@ -273,12 +273,12 @@ def send_apdu(hcard, protocol: Protocol, apdu: dict):
         if Lc < 65536:
             Lc = F"00{Lc:04X}"
             if protocol == Protocol.T0:
-                raise Exception('Unsupported case 3E with protocol T=0')
+                raise PcscError('Unsupported case 3E with protocol T=0')
             if protocol == Protocol.T1:
                 return transmit(hcard, protocol, header + Lc + data)
         # Data field too long
         else:
-            raise Exception(F"Data field too long: {Lc:X}")
+            raise PcscError(F"Data field too long: {Lc:X}")
 
     # Case 4S
     logging.debug("Case 4S")
@@ -291,11 +291,11 @@ def send_apdu(hcard, protocol: Protocol, apdu: dict):
     logging.debug("Case 4E")
     if Lc < 65536 and len(Le) == 6:
         if protocol == Protocol.T0:
-            raise Exception('Unsupported case 4E with protocol T=0')
+            raise PcscError('Unsupported case 4E with protocol T=0')
         if protocol == Protocol.T1:
             return transmit(hcard, protocol, header + F"00{Lc:04X}" + data + Le)
 
-    raise Exception(
+    raise PcscError(
         F'Unsupported case with short and extended lengths: Lc = {Lc:X}, Le = {Le}')
 
 
@@ -313,7 +313,7 @@ def _send_apdu_T0_case_2s(hcard, header: str, Le: str):
         pass
     # Wrong Le field
     else:
-        raise Exception(F'Wrong Le value: {Le}')
+        raise PcscError(F'Wrong Le value: {Le}')
 
     data, SW1, SW2 = transmit(hcard, Protocol.T0, header + Le)
     # Case 2S.1—Process completed: Ne accepted
@@ -321,7 +321,7 @@ def _send_apdu_T0_case_2s(hcard, header: str, Le: str):
         return data, SW1, SW2
     # Case 2S.2—Process aborted: Ne definitively not accepted
     if SW1+SW2 == '6700':
-        raise Exception(
+        raise PcscError(
             'Error—Process aborted: Ne definitively not accepted (6700)')
     # Case 2S.3—Process aborted; Ne not accepted, Na indicated
     if SW1 == '6C':
@@ -330,7 +330,7 @@ def _send_apdu_T0_case_2s(hcard, header: str, Le: str):
     if SW1.startswith('9'):
         return data, SW1, SW2
 
-    raise Exception(F'Unknown command case (data={data}, SW12={SW1}{SW2})')
+    raise PcscError(F'Unknown command case (data={data}, SW12={SW1}{SW2})')
 
 
 def _send_apdu_T0_case_3s(hcard, header: str, Lc: str, data: str):
@@ -341,7 +341,7 @@ def _send_apdu_T0_case_3s(hcard, header: str, Lc: str, data: str):
         pass
     # Data field too long
     else:
-        raise Exception(F"Data field too long: {Lc}")
+        raise PcscError(F"Data field too long: {Lc}")
 
     return transmit(hcard, Protocol.T0, header + Lc + data)
 
@@ -354,19 +354,19 @@ def _send_apdu_T0_case_4s(hcard, header: str, Lc: str, data: str, Le: str):
         pass
     # Data field too long
     else:
-        raise Exception(F"Data field too long: {Lc}")
+        raise PcscError(F"Data field too long: {Lc}")
 
     # Short Le field
     if len(Le) == 2:
         pass
     # Wrong Le field
     else:
-        raise Exception(F'Wrong Le value: {Le}')
+        raise PcscError(F'Wrong Le value: {Le}')
 
     data, SW1, SW2 = transmit(hcard, Protocol.T0, header + Lc + data + Le)
     # Case 4S.1—Process aborted
     if SW1[0] == '6' and SW1[1] in '0456789ABCDEF':
-        raise Exception(
+        raise PcscError(
             F'Error—Process aborted (data={data}, SW12={SW1}{SW2})')
     # Case 4S.2—Process completed
     if SW1+SW2 == '9000':
@@ -383,7 +383,7 @@ def _send_apdu_T0_case_4s(hcard, header: str, Lc: str, data: str, Le: str):
     if SW1.startswith('9') or SW1 in ['62', '63']:
         return data, SW1, SW2
 
-    raise Exception(F'Unknown command case (data={data}, SW12={SW1}{SW2})')
+    raise PcscError(F'Unknown command case (data={data}, SW12={SW1}{SW2})')
 
 
 def get_status_change(hcontext, reader_states=None, timeout=None):
@@ -405,7 +405,7 @@ def get_status_change(hcontext, reader_states=None, timeout=None):
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to get new reader states ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
-        raise Exception(err)
+        raise PcscError(err)
 
     new_reader_states = list(
         map(_convert_reader_state_from_scard, new_reader_states))
@@ -423,7 +423,7 @@ def disconnect(hcard, disposition: Disposition):
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to disconnect ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
-        raise Exception(err)
+        raise PcscError(err)
 
     logging.debug("Disconnected")
 
@@ -435,7 +435,7 @@ def release_context(hcontext):
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to release context: {_SCardGetErrorMessage(hresult)}'
         logging.debug(err)
-        raise Exception(err)
+        raise PcscError(err)
 
     logging.debug("Context released")
 
