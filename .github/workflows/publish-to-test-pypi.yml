@@ -18,10 +18,6 @@ jobs:
           build
           --user
 
-      # Display the Python version being used
-      - name: Display Python version
-        run: python -c "import sys; print(sys.version)"
-
       - name: Build a binary wheel and a source tarball
         run: >-
           python -m
