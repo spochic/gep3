@@ -54,7 +54,7 @@ from common.hstr import \
     minimum as _min,\
     clean as _clean
 
-# Global definitions
+# Enum definitions
 
 
 class Scope(Enum):
@@ -91,6 +91,14 @@ class State(Enum):
     Negotiable = 0x0020
     Specific = 0x0040
 
+# Exception definition
+
+
+class PcscError(Exception):
+    pass
+
+
+# Functions definitions
 
 def establish_context(scope: Scope):
     """establish_context():
@@ -100,10 +108,10 @@ def establish_context(scope: Scope):
     hresult, hcontext = _SCardEstablishContext(dw_scope)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to establish context ({_SCardGetErrorMessage(hresult)})'
-        logging.info(err)
+        logging.debug(err)
         raise Exception(err)
 
-    logging.info(F"Context established with scope={scope}")
+    logging.debug(F"Context established with scope={scope}")
     return hcontext
 
 
@@ -116,10 +124,10 @@ def list_readers(hcontext, readergroups=None):
     hresult, readers = _SCardListReaders(hcontext, readergroups)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to list readers ({_SCardGetErrorMessage(hresult)})'
-        logging.info(err)
+        logging.debug(err)
         raise Exception(err)
 
-    logging.info(F"Readers listed: {', '.join(readers)}")
+    logging.debug(F"Readers listed: {', '.join(readers)}")
     return readers
 
 
@@ -133,11 +141,11 @@ def connect(hcontext, reader, share_mode: ShareMode, preferred_protocols: Protoc
         hcontext, reader, dw_share_mode, dw_preferred_protocols)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Unable to connect ({_SCardGetErrorMessage(hresult)})'
-        logging.info(err)
-        raise Exception(err)
+        logging.debug(err)
+        raise PcscError(err)
 
     protocol = Protocol(dw_active_protocol)
-    logging.info(F"Connected with mode={share_mode}, protocol={protocol}")
+    logging.debug(F"Connected with mode={share_mode}, protocol={protocol}")
     return hcard, protocol
 
 
@@ -153,11 +161,11 @@ def reconnect(hcard, share_mode: ShareMode, preferred_protocols: Protocol, initi
 
     if hresult != _SCARD_S_SUCCESS:
         err = F'Unable to reconnect ({_SCardGetErrorMessage(hresult)})'
-        logging.info(err)
+        logging.debug(err)
         raise Exception(err)
 
     active_protocol = Protocol(dw_active_protocol)
-    logging.info(
+    logging.debug(
         F"Reconnected with mode={share_mode}, disposition={initialization}, protocol={active_protocol}")
     return active_protocol
 
@@ -169,7 +177,7 @@ def status(hcard):
 
     if hresult != _SCARD_S_SUCCESS:
         err = F'Unable to get current reader status ({_SCardGetErrorMessage(hresult)})'
-        logging.info(err)
+        logging.debug(err)
         raise Exception(err)
 
     protocol = Protocol(dw_protocol)
@@ -177,7 +185,7 @@ def status(hcard):
     for scard_state in State:
         if dw_state & scard_state.value:
             state.append(scard_state)
-    logging.info(
+    logging.debug(
         F"Card status: reader='{reader}', state={state}, protocol={protocol}, ATR={_to_hstr(atr)}")
     return reader, state, protocol, _to_hstr(atr)
 
@@ -193,15 +201,15 @@ def transmit(hcard, protocol: Protocol, apdu: str):
     hresult, response_bytes = _SCardTransmit(hcard, pio_send_pci, apdu_bytes)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to transmit ({_SCardGetErrorMessage(hresult)})'
-        logging.info(err)
+        logging.debug(err)
         raise Exception(err)
 
     response = _to_hstr(response_bytes)
     data = response[0:-4]
     SW1 = response[-4:-2]
     SW2 = response[-2:]
-    logging.info(F"Tx->{apdu}")
-    logging.info(F"Rx<-{data}{SW1}{SW2}")
+    logging.debug(F"Tx->{apdu}")
+    logging.debug(F"Rx<-{data}{SW1}{SW2}")
 
     return data, SW1, SW2
 
@@ -396,13 +404,13 @@ def get_status_change(hcontext, reader_states=None, timeout=None):
         hcontext, timeout, old_reader_states)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to get new reader states ({_SCardGetErrorMessage(hresult)})'
-        logging.info(err)
+        logging.debug(err)
         raise Exception(err)
 
     new_reader_states = list(
         map(_convert_reader_state_from_scard, new_reader_states))
 
-    logging.info(F"new reader states: {', '.join(new_reader_states)}")
+    logging.debug(F"new reader states: {', '.join(new_reader_states)}")
     return new_reader_states
 
 
@@ -414,10 +422,10 @@ def disconnect(hcard, disposition: Disposition):
     hresult = _SCardDisconnect(hcard, dw_disposition)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to disconnect ({_SCardGetErrorMessage(hresult)})'
-        logging.info(err)
+        logging.debug(err)
         raise Exception(err)
 
-    logging.info("Disconnected")
+    logging.debug("Disconnected")
 
 
 def release_context(hcontext):
@@ -426,10 +434,10 @@ def release_context(hcontext):
     hresult = _SCardReleaseContext(hcontext)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to release context: {_SCardGetErrorMessage(hresult)}'
-        logging.info(err)
+        logging.debug(err)
         raise Exception(err)
 
-    logging.info("Context released")
+    logging.debug("Context released")
 
 #
 # Helper functions
