@@ -107,11 +107,11 @@ def establish_context(scope: Scope):
 
     hresult, hcontext = _SCardEstablishContext(dw_scope)
     if hresult != _SCARD_S_SUCCESS:
-        err = F'Failed to establish context ({_SCardGetErrorMessage(hresult)})'
+        err = F'Failed to establish PC/SC context ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
         raise PcscError(err)
 
-    logging.debug(F"Context established with scope={scope}")
+    logging.debug(F"PC/SC context established with scope={scope}")
     return hcontext
 
 
@@ -433,11 +433,11 @@ def release_context(hcontext):
     """
     hresult = _SCardReleaseContext(hcontext)
     if hresult != _SCARD_S_SUCCESS:
-        err = F'Failed to release context: {_SCardGetErrorMessage(hresult)}'
+        err = F'Failed to release PC/SC context: {_SCardGetErrorMessage(hresult)}'
         logging.debug(err)
         raise PcscError(err)
 
-    logging.debug("Context released")
+    logging.debug("PC/SC context released")
 
 #
 # Helper functions
