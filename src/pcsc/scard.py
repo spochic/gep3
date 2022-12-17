@@ -35,6 +35,9 @@ from smartcard.scard import \
     SCARD_STATE_MUTE as _SCARD_STATE_MUTE,\
     SCARD_STATE_CHANGED as _SCARD_STATE_CHANGED,\
     SCARD_STATE_UNKNOWN as _SCARD_STATE_UNKNOWN,\
+    SCARD_ATTR_ATR_STRING as _SCARD_ATTR_ATR_STRING,\
+    SCARD_ATTR_VENDOR_IFD_SERIAL_NO as _SCARD_ATTR_VENDOR_IFD_SERIAL_NO,\
+    SCARD_ATTR_VENDOR_NAME as _SCARD_ATTR_VENDOR_NAME,\
     SCardEstablishContext as _SCardEstablishContext,\
     SCardListReaders as _SCardListReaders,\
     SCardConnect as _SCardConnect,\
@@ -44,7 +47,8 @@ from smartcard.scard import \
     SCardDisconnect as _SCardDisconnect,\
     SCardReleaseContext as _SCardReleaseContext,\
     SCardGetErrorMessage as _SCardGetErrorMessage,\
-    SCardGetStatusChange as _SCardGetStatusChange
+    SCardGetStatusChange as _SCardGetStatusChange,\
+    SCardGetAttrib as _SCardGetAttrib
 
 
 # Local application imports
@@ -90,6 +94,13 @@ class State(Enum):
     Powered = 0x0010
     Negotiable = 0x0020
     Specific = 0x0040
+
+
+class Attribute(Enum):
+    AtrString = _SCARD_ATTR_ATR_STRING
+    IfdSerialNo = _SCARD_ATTR_VENDOR_IFD_SERIAL_NO
+    VendorName = _SCARD_ATTR_VENDOR_NAME
+
 
 # Exception definition
 
@@ -316,16 +327,32 @@ def _send_apdu_T0_case_2s(hcard, header: str, Le: str):
         raise PcscError(F'Wrong Le value: {Le}')
 
     data, SW1, SW2 = transmit(hcard, Protocol.T0, header + Le)
+    if SW1+SW2 == '6B00':
+        raise PcscError(
+            'Checking error: Wrong parameters P1-P2 (6B00)')
+    if SW1+SW2 == '6D00':
+        raise PcscError(
+            'Checking error: Instruction code not supported or invalid (6D00)')
+    if SW1+SW2 == '6E00':
+        raise PcscError(
+            'Checking error: Class not supported (6E00)')
+    if SW1+SW2 == '6F00':
+        raise PcscError(
+            'Checking error: No precise diagnostis (6F00)')
+
     # Case 2S.1—Process completed: Ne accepted
     if SW1+SW2 == '9000':
         return data, SW1, SW2
+
     # Case 2S.2—Process aborted: Ne definitively not accepted
     if SW1+SW2 == '6700':
         raise PcscError(
             'Error—Process aborted: Ne definitively not accepted (6700)')
+
     # Case 2S.3—Process aborted; Ne not accepted, Na indicated
     if SW1 == '6C':
         return transmit(hcard, Protocol.T0, header + SW2)
+
     # Case 2S.4—SW12 = '9XYZ', except for '9000'
     if SW1.startswith('9'):
         return data, SW1, SW2
@@ -412,6 +439,20 @@ def get_status_change(hcontext, reader_states=None, timeout=None):
 
     logging.debug(F"new reader states: {', '.join(new_reader_states)}")
     return new_reader_states
+
+
+def get_attribute(hcard, attribute: Attribute):
+    hresult, value = _SCardGetAttrib(hcard, attribute.value)
+    if hresult != _SCARD_S_SUCCESS:
+        err = F'Failed to get attribute {attribute} ({_SCardGetErrorMessage(hresult)})'
+        logging.debug(err)
+        raise PcscError(err)
+    if attribute == Attribute.AtrString:
+        return _to_hstr(value)
+    elif attribute in [Attribute.IfdSerialNo, Attribute.VendorName]:
+        return ''.join([chr(i) for i in value])
+    else:
+        return
 
 
 def disconnect(hcard, disposition: Disposition):
