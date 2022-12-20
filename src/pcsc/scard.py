@@ -3,7 +3,7 @@
 
 # Standard library imports
 import logging
-from enum import Enum
+from enum import IntEnum
 
 # Third party imports
 from asyncore import read
@@ -61,32 +61,32 @@ from common.hstr import \
 # Enum definitions
 
 
-class Scope(Enum):
+class Scope(IntEnum):
     User = _SCARD_SCOPE_USER
     System = _SCARD_SCOPE_SYSTEM
 
 
-class ShareMode(Enum):
+class ShareMode(IntEnum):
     Shared = _SCARD_SHARE_SHARED
     Exclusive = _SCARD_SHARE_EXCLUSIVE
     Direct = _SCARD_SHARE_DIRECT
 
 
-class Protocol(Enum):
+class Protocol(IntEnum):
     T0 = _SCARD_PROTOCOL_T0
     T1 = _SCARD_PROTOCOL_T1
     T0orT1 = _SCARD_PROTOCOL_T0 | _SCARD_PROTOCOL_T1
     Raw = _SCARD_PROTOCOL_RAW
 
 
-class Disposition(Enum):
+class Disposition(IntEnum):
     LeaveCard = _SCARD_LEAVE_CARD
     ResetCard = _SCARD_RESET_CARD
     UnpowerCard = _SCARD_UNPOWER_CARD
     EjectCard = _SCARD_EJECT_CARD
 
 
-class State(Enum):
+class State(IntEnum):
     Unknown = 0x0001
     Absent = 0x0002
     Present = 0x0004
@@ -96,7 +96,7 @@ class State(Enum):
     Specific = 0x0040
 
 
-class Attribute(Enum):
+class Attribute(IntEnum):
     AtrString = _SCARD_ATTR_ATR_STRING
     IfdSerialNo = _SCARD_ATTR_VENDOR_IFD_SERIAL_NO
     VendorName = _SCARD_ATTR_VENDOR_NAME
@@ -104,25 +104,22 @@ class Attribute(Enum):
 
 # Exception definition
 
-
 class PcscError(Exception):
     pass
 
 
 # Functions definitions
 
-def establish_context(scope: Scope):
+def establish_context(dw_scope: Scope):
     """establish_context():
     """
-    dw_scope = scope.value
-
     hresult, hcontext = _SCardEstablishContext(dw_scope)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to establish PC/SC context ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
         raise PcscError(err)
 
-    logging.debug(F"PC/SC context established with scope={scope}")
+    logging.debug(F"PC/SC context established with scope={dw_scope}")
     return hcontext
 
 
@@ -142,12 +139,9 @@ def list_readers(hcontext, readergroups=None):
     return readers
 
 
-def connect(hcontext, reader, share_mode: ShareMode, preferred_protocols: Protocol):
+def connect(hcontext, reader, dw_share_mode: ShareMode, dw_preferred_protocols: Protocol):
     """connect():
     """
-    dw_share_mode = share_mode.value
-    dw_preferred_protocols = preferred_protocols.value
-
     hresult, hcard, dw_active_protocol = _SCardConnect(
         hcontext, reader, dw_share_mode, dw_preferred_protocols)
     if hresult != _SCARD_S_SUCCESS:
@@ -156,17 +150,13 @@ def connect(hcontext, reader, share_mode: ShareMode, preferred_protocols: Protoc
         raise PcscError(err)
 
     protocol = Protocol(dw_active_protocol)
-    logging.debug(F"Connected with mode={share_mode}, protocol={protocol}")
+    logging.debug(F"Connected with mode={dw_share_mode}, protocol={protocol}")
     return hcard, protocol
 
 
-def reconnect(hcard, share_mode: ShareMode, preferred_protocols: Protocol, initialization: Disposition):
+def reconnect(hcard, dw_share_mode: ShareMode, dw_preferred_protocols: Protocol, dw_initialization: Disposition):
     """reconnect():
     """
-    dw_share_mode = share_mode.value
-    dw_preferred_protocols = preferred_protocols.value
-    dw_initialization = initialization.value
-
     hresult, dw_active_protocol = _SCardReconnect(
         hcard, dw_share_mode, dw_preferred_protocols, dw_initialization)
 
@@ -177,7 +167,7 @@ def reconnect(hcard, share_mode: ShareMode, preferred_protocols: Protocol, initi
 
     active_protocol = Protocol(dw_active_protocol)
     logging.debug(
-        F"Reconnected with mode={share_mode}, disposition={initialization}, protocol={active_protocol}")
+        F"Reconnected with mode={dw_share_mode}, disposition={dw_initialization}, protocol={active_protocol}")
     return active_protocol
 
 
@@ -194,7 +184,7 @@ def status(hcard):
     protocol = Protocol(dw_protocol)
     state = []
     for scard_state in State:
-        if dw_state & scard_state.value:
+        if dw_state & scard_state:
             state.append(scard_state)
     logging.debug(
         F"Card status: reader='{reader}', state={state}, protocol={protocol}, ATR={_to_hstr(atr)}")
@@ -455,11 +445,9 @@ def get_attribute(hcard, attribute: Attribute):
         return
 
 
-def disconnect(hcard, disposition: Disposition):
+def disconnect(hcard, dw_disposition: Disposition):
     """disconnect():
     """
-    dw_disposition = disposition.value
-
     hresult = _SCardDisconnect(hcard, dw_disposition)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to disconnect ({_SCardGetErrorMessage(hresult)})'
