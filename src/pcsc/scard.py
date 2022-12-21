@@ -139,13 +139,9 @@ def list_readers(hcontext, readergroups=None):
     return readers
 
 
-def list_readers_with_serialno(hcontext, readergroups=None):
-    """list_readers_with_serialno():
+def list_readers_serialno(hcontext, readers):
+    """list_readers_serialno():
     """
-    if readergroups is None:
-        readergroups = []
-
-    readers = list_readers(hcontext, readergroups)
     serial_nos = []
     for r in readers:
         hcard, _ = connect(hcontext, r, ShareMode.Direct, Protocol.T0orT1)
@@ -153,8 +149,8 @@ def list_readers_with_serialno(hcontext, readergroups=None):
         disconnect(hcard, Disposition.UnpowerCard)
 
     logging.debug(
-        F"Readers listed: {', '.join([F'{r} ({s})' for r,s in zip(readers, serial_nos)])}")
-    return readers, serial_nos
+        F"Serial nos listed: {', '.join([F'{r} ({s})' for r,s in zip(readers, serial_nos)])}")
+    return serial_nos
 
 
 def connect(hcontext, reader, dw_share_mode: ShareMode, dw_preferred_protocols: Protocol):
