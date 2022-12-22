@@ -13,6 +13,7 @@ Generic functions working on strings containing only
 # Local application imports
 from common.str import clean as _clean
 
+
 def clean(hstr_in: str, command_name='()', hstr_name='') -> str:
     """clean(hstr)
 
@@ -21,6 +22,7 @@ def clean(hstr_in: str, command_name='()', hstr_name='') -> str:
     - Raises exceptions on illegal characters
     """
     return _clean(hstr_in, '0123456789ABCDEFabcdef', '_', command_name, hstr_name).upper()
+
 
 def to_bitstr(hstr: str, command_name='()', hstr_name='') -> str:
     """to_bitstr(hstr): converts 'hex strings' to 'bit strings'
@@ -31,6 +33,7 @@ def to_bitstr(hstr: str, command_name='()', hstr_name='') -> str:
         bstr += F"{int(nibble, 16):04b}"
 
     return bstr
+
 
 def or_(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
     """or_(hstr_a, hstr_b):
@@ -47,6 +50,7 @@ def or_(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
 
     return or_hstr
 
+
 def xor(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
     """xor(hstr_a, hstr_b):
     """
@@ -62,6 +66,7 @@ def xor(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
 
     return xor_hstr
 
+
 def and_(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
     """and_(hstr_a, hstr_b):
     """
@@ -76,6 +81,7 @@ def and_(hstr_a: str, hstr_b: str, command_name='()', hstr_name='') -> str:
         and_hstr += F"{int(nibble_a, 16)&int(nibble_b, 16):X}"
 
     return and_hstr
+
 
 def not_(hstr_in: str, command_name='()', hstr_name='') -> str:
     """not(hstr):
@@ -100,8 +106,7 @@ def to_intlist(hstr: str, command_name='()', hstr_name='') -> list[int]:
     """
     hstr = clean(hstr, command_name, hstr_name)
     if (len(hstr) % 2) != 0:
-        raise ValueError(
-            F"{command_name}: uneven length for {hstr_name}: {len(hstr)}")
+        hstr = '0' + hstr
 
     bytelist = []
     for i in range(len(hstr)//2):
@@ -121,16 +126,18 @@ def minimum(hstr_a: str, hstr_b: str) -> str:
 
     return hstr_b
 
-def split_by_length(hstr:str, length:int) -> list[str]:
+
+def split_by_length(hstr: str, length: int) -> list[str]:
     """split_by(): 
     """
     if len(hstr) % length != 0:
         # Error if the string is not a multiple of the length divider
         return []
-    
+
     nr_splits = len(hstr)//length
 
     return [hstr[i*length:(i+1)*length] for i in range(nr_splits)]
+
 
 def dscan_decimalize(hstr: str) -> str:
     """dscan_decimalize(): double scan decimalization
