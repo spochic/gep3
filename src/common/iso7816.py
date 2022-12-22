@@ -7,8 +7,7 @@ from enum import Enum
 # Third party imports
 
 # Local application imports
-from .hstr import clean as _clean
-from .hstr import to_intlist as _to_intlist
+from .hstr import clean as _clean, to_intlist as _to_intlist
 from .intlist import to_hstr as _to_hstr
 
 # Definitions
@@ -172,6 +171,12 @@ class CommandApdu:
                     case CommandCase.Case2e | CommandCase.Case4e:
                         return _to_hstr(self.__list[-2:])
 
+    def CLA(self):
+        return self.get_field(CommandField.Class)
+
+    def Le(self):
+        return self.get_field(CommandField.Le)
+
     def case(self):
         return self.__case
 
@@ -188,17 +193,30 @@ class CommandApdu:
             case CommandCase.Case4s | CommandCase.Case4e:
                 return str + F", Lc={self.Lc()}, DATA={self.DATA()}, Le={self.Le()}"
 
+    def update_Le(self, Le: str):
+        match self.__case:
+            case CommandCase.Case1 | CommandCase.Case3s | CommandCase.Case3e:
+                raise ValueError(
+                    F'Wrong Command APDU field: {self.__case} has no Le field')
+
+            case CommandCase.Case2s | CommandCase.Case2e:
+                return CommandApdu.from_dict({CommandField.Header: self.get_field(CommandField.Header),
+                                              CommandField.Le: Le})
+
+            case CommandCase.Case4s | CommandCase.Case4e:
+                return CommandApdu.from_dict({CommandField.Header: self.get_field(CommandField.Header),
+                                              CommandField.Data: self.get_field(CommandField.Data),
+                                              CommandField.Le: Le})
+
 
 class ResponseApdu:
     def __init__(self, apdu_str: str):
         self.__list = _to_intlist(
             apdu_str, "ResponseApdu.__init__()", "apdu_str")
 
-        self.__dict = {
-            'SW1': F"{self.__list[-2]:02X}", 'SW2': F"{self.__list[-1]:02X}"}
-
-        if len(self.__list) > 2:
-            self.__dict['DATA'] = _to_hstr(self.__list[0:-2])
+    @classmethod
+    def from_list(cls, response: list[int]):
+        return cls(_to_hstr(response))
 
     def list(self):
         return self.__list
@@ -223,6 +241,47 @@ class ResponseApdu:
                 else:
                     raise ValueError(
                         'Wrong Response APDU field: no response body')
+
+    def data(self):
+        return self.get_field(ResponseField.Data)
+
+    def SW12(self):
+        return self.get_field(ResponseField.SW12)
+
+    def SW1(self):
+        return self.get_field(ResponseField.SW1)
+
+    def SW2(self):
+        return self.get_field(ResponseField.SW2)
+
+    def __str__(self):
+        return _to_hstr(self.__list)
+
+
+#
+# Commands for interchange
+#
+
+def GET_RESPONSE(CLA: str, Le: str):
+    return CommandApdu.from_dict({CommandField.Class: CLA, CommandField.Instruction: 'C0', CommandField.P1: '00', CommandField.P2: '00', CommandField.Le: Le})
+
+
+def SELECT(CLA: str, P1: str, P2: str, Identifier: str = None, Le: str = None):
+    apdu_dict = {CommandField.Class: CLA, CommandField.Instruction: 'A4',
+                 CommandField.P1: P1, CommandField.P2: P2}
+
+    if Identifier is not None:
+        apdu_dict[CommandField.Data] = Identifier
+
+    if Le is not None:
+        apdu_dict[CommandField.Le] = Le
+
+    return CommandApdu.from_dict(apdu_dict)
+
+
+#
+# Helper functions
+#
 
 
 def _Lc(data: list[int]):
