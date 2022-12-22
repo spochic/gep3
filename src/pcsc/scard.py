@@ -57,6 +57,7 @@ from common.hstr import \
     to_intlist as _to_intlist,\
     minimum as _min,\
     clean as _clean
+from common.iso7816 import CommandApdu, ResponseApdu, CommandCase, GET_RESPONSE as _GET_RESPONSE
 
 # Enum definitions
 
@@ -119,7 +120,7 @@ def establish_context(dw_scope: Scope):
         logging.debug(err)
         raise PcscError(err)
 
-    logging.debug(F"PC/SC context established with scope={dw_scope}")
+    logging.debug(F"PC/SC context established with scope={dw_scope.name}")
     return hcontext
 
 
@@ -164,7 +165,8 @@ def connect(hcontext, reader, dw_share_mode: ShareMode, dw_preferred_protocols: 
         raise PcscError(err)
 
     protocol = Protocol(dw_active_protocol)
-    logging.debug(F"Connected with mode={dw_share_mode}, protocol={protocol}")
+    logging.debug(
+        F"Connected with mode={dw_share_mode.name}, protocol={protocol.name}")
     return hcard, protocol
 
 
@@ -181,7 +183,7 @@ def reconnect(hcard, dw_share_mode: ShareMode, dw_preferred_protocols: Protocol,
 
     active_protocol = Protocol(dw_active_protocol)
     logging.debug(
-        F"Reconnected with mode={dw_share_mode}, disposition={dw_initialization}, protocol={active_protocol}")
+        F"Reconnected with mode={dw_share_mode.name}, disposition={dw_initialization.name}, protocol={active_protocol.name}")
     return active_protocol
 
 
@@ -201,220 +203,225 @@ def status(hcard):
         if dw_state & scard_state:
             state.append(scard_state)
     logging.debug(
-        F"Card status: reader='{reader}', state={state}, protocol={protocol}, ATR={_to_hstr(atr)}")
+        F"Card status: reader='{reader}', state={state.name}, protocol={protocol.name}, ATR={_to_hstr(atr)}")
     return reader, state, protocol, _to_hstr(atr)
 
 
-def transmit(hcard, protocol: Protocol, apdu: str):
+def transmit(hcard, protocol: Protocol, command_apdu: CommandApdu) -> ResponseApdu:
     """transmit()
     """
     pio_send_pci = {Protocol.T0: _SCARD_PCI_T0,
                     Protocol.T1: _SCARD_PCI_T1}[protocol]
 
-    apdu_bytes = _to_intlist(apdu)
-
-    hresult, response_bytes = _SCardTransmit(hcard, pio_send_pci, apdu_bytes)
+    hresult, response = _SCardTransmit(
+        hcard, pio_send_pci, command_apdu.list())
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to transmit ({_SCardGetErrorMessage(hresult)})'
         logging.debug(err)
         raise PcscError(err)
 
-    response = _to_hstr(response_bytes)
-    data = response[0:-4]
-    SW1 = response[-4:-2]
-    SW2 = response[-2:]
-    logging.debug(F"Tx->{apdu}")
-    logging.debug(F"Rx<-{data}{SW1}{SW2}")
+    response_apdu = ResponseApdu.from_list(response)
+    logging.debug(F"Tx->{command_apdu.str()}")
+    logging.debug(F"Rx<-{response_apdu.str()}")
 
-    return data, SW1, SW2
+    return response_apdu
 
 
-def send_apdu(hcard, protocol: Protocol, apdu: dict):
+def send_apdu(hcard, protocol: Protocol, command_apdu: CommandApdu) -> ResponseApdu:
     """send_apdu()
     """
-    # Extracting APDU header, data, length field from apdu dictionary
-    if 'header' in apdu:
-        header = _clean(apdu['header'])
-    else:
-        CLA = _clean(apdu['CLA'])
-        INS = _clean(apdu['INS'])
-        P1 = _clean(apdu['P1'])
-        P2 = _clean(apdu['P2'])
-        header = CLA + INS + P1 + P2
+    match protocol:
+        case Protocol.T0:
+            match command_apdu.case():
+                case CommandCase.Case1:
+                    return _send_apdu_T0_case_1(hcard, command_apdu)
 
-    data = apdu.get('data', None)
-    Le = apdu.get('Le', None)
+                case CommandCase.Case2s:
+                    return _send_apdu_T0_case_2s(hcard, command_apdu)
 
-    if protocol not in Protocol:
-        raise PcscError(F'Unsupported protocol: {protocol}')
+                case CommandCase.Case2e:
+                    raise PcscError('Case 2e not yet implemented for T=0')
 
-    if data is None:
-        # Case 1
-        if Le is None:
-            logging.debug("Case 1")
-            if protocol == Protocol.T0:
-                return _send_apdu_T0_case_1(hcard, header)
-            if protocol == Protocol.T1:
-                return transmit(hcard, protocol, header)
-        # Case 2S
-        logging.debug("Case 2S")
-        Le = _clean(Le, 'send_apdu()', 'Le')
-        if len(Le) == 2:
-            if protocol == Protocol.T0:
-                return _send_apdu_T0_case_2s(hcard, header, Le)
-            if protocol == Protocol.T1:
-                return transmit(hcard, protocol, header + Le)
-        # Case 2E
-        logging.debug("Case 2E")
-        if len(Le) == 6:
-            if protocol == Protocol.T0:
-                raise PcscError('Unsupported case 2E with protocol T=0')
-            if protocol == Protocol.T1:
-                return transmit(hcard, protocol, header + Le)
+                case CommandCase.Case3s:
+                    return _send_apdu_T0_case_3s(hcard, command_apdu)
 
-    data = _clean(data, 'send_apdu()', 'data')
-    Lc = len(data)//2
-    if Le is None:
-        # Case 3S
-        logging.debug("Case 3S")
-        if Lc < 256:
-            Lc = F"{Lc:02X}"
-            if protocol == Protocol.T0:
-                return _send_apdu_T0_case_3s(hcard, header, Lc, data)
-            if protocol == Protocol.T1:
-                return transmit(hcard, protocol, header + Lc + data)
-        # Case 3E
-        logging.debug("Case 3E")
-        if Lc < 65536:
-            Lc = F"00{Lc:04X}"
-            if protocol == Protocol.T0:
-                raise PcscError('Unsupported case 3E with protocol T=0')
-            if protocol == Protocol.T1:
-                return transmit(hcard, protocol, header + Lc + data)
-        # Data field too long
-        else:
-            raise PcscError(F"Data field too long: {Lc:X}")
+                case CommandCase.Case3e:
+                    raise PcscError('Case 3e not yet implemented for T=0')
 
-    # Case 4S
-    logging.debug("Case 4S")
-    if Lc < 256 and len(Le) == 2:
-        if protocol == Protocol.T0:
-            return _send_apdu_T0_case_4s(hcard, header, F"{Lc:02X}", data, Le)
-        if protocol == Protocol.T1:
-            return transmit(hcard, protocol, header + F"{Lc:02X}" + data + Le)
-    # Case 4E
-    logging.debug("Case 4E")
-    if Lc < 65536 and len(Le) == 6:
-        if protocol == Protocol.T0:
-            raise PcscError('Unsupported case 4E with protocol T=0')
-        if protocol == Protocol.T1:
-            return transmit(hcard, protocol, header + F"00{Lc:04X}" + data + Le)
+                case CommandCase.Case4s:
+                    return _send_apdu_T0_case_4s(hcard, command_apdu)
 
-    raise PcscError(
-        F'Unsupported case with short and extended lengths: Lc = {Lc:X}, Le = {Le}')
+                case CommandCase.Case4e:
+                    raise PcscError('Case 4e not yet implemented for T=0')
+
+        case Protocol.T1:
+            response_apdu = transmit(hcard, protocol, command_apdu)
+
+            match (response_apdu.SW1(), response_apdu.SW2()):
+                case ('90', '00') | ('61', _):
+                    # Normal processing
+                    return response_apdu
+
+                case ('62', _) | ('63', _):
+                    # Warning processing
+                    return response_apdu
+
+                case ('64', _) | ('65', _) | ('66', _):
+                    # Execution error
+                    raise PcscError(
+                        F"Execution error-{response_apdu.SW12()}")
+
+                case ('67', '00') | ('68', _) | ('69', _) | ('6A', _) | ('6B', '00') | ('6C', _) | ('6D', '00') | ('6E', '00') | ('6F', '00'):
+                    raise PcscError(
+                        F"Checking error-{response_apdu.SW12()}")
+
+                case _:
+                    raise PcscError(
+                        F"Unknown error-{response_apdu.SW12()}")
+
+        case _:
+            raise PcscError(
+                F'Unsupported protocol: {protocol.name}')
 
 
-def _send_apdu_T0_case_1(hcard, header: str):
+def _send_apdu_T0_case_1(hcard, command_apdu: CommandApdu) -> ResponseApdu:
     """send_apdu_T0_case_1():
     """
-    return transmit(hcard, Protocol.T0, header)
+    logging.debug('Command APDU Case 1')
+    response_apdu = transmit(hcard, Protocol.T0, command_apdu)
+
+    match (response_apdu.SW1(), response_apdu.SW2()):
+        case ('90', '00') | ('61', _):
+            # Normal processing
+            return response_apdu
+
+        case ('62', _) | ('63', _):
+            # Warning processing
+            return response_apdu
+
+        case ('64', _) | ('65', _) | ('66', _):
+            # Execution error
+            raise PcscError(F"Execution error-{response_apdu.SW12()}")
+
+        case ('67', '00') | ('68', _) | ('69', _) | ('6A', _) | ('6B', '00') | ('6C', _) | ('6D', '00') | ('6E', '00') | ('6F', '00'):
+            raise PcscError(F"Checking error-{response_apdu.SW12()}")
+
+        case _:
+            raise PcscError(F"Unknown error-{response_apdu.SW12()}")
 
 
-def _send_apdu_T0_case_2s(hcard, header: str, Le: str):
+def _send_apdu_T0_case_2s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
     """send_apdu_T0_case_2s():
     """
-    # Short Le field
-    if len(Le) == 2:
-        pass
-    # Wrong Le field
-    else:
-        raise PcscError(F'Wrong Le value: {Le}')
+    logging.debug('Command APDU Case 2S')
+    response_apdu = transmit(hcard, Protocol.T0, command_apdu)
 
-    data, SW1, SW2 = transmit(hcard, Protocol.T0, header + Le)
-    if SW1+SW2 == '6B00':
-        raise PcscError(
-            'Checking error: Wrong parameters P1-P2 (6B00)')
-    if SW1+SW2 == '6D00':
-        raise PcscError(
-            'Checking error: Instruction code not supported or invalid (6D00)')
-    if SW1+SW2 == '6E00':
-        raise PcscError(
-            'Checking error: Class not supported (6E00)')
-    if SW1+SW2 == '6F00':
-        raise PcscError(
-            'Checking error: No precise diagnostis (6F00)')
+    match response_apdu.SW1(), response_apdu.SW2():
+        case ('90', '00'):
+            # Case 2S.1—Process completed: Ne accepted
+            return response_apdu
 
-    # Case 2S.1—Process completed: Ne accepted
-    if SW1+SW2 == '9000':
-        return data, SW1, SW2
+        case ('67', '00'):
+            # Case 2S.2—Process aborted: Ne definitively not accepted
+            raise PcscError(
+                'Checking error-Process aborted: Ne definitively not accepted (6700)')
 
-    # Case 2S.2—Process aborted: Ne definitively not accepted
-    if SW1+SW2 == '6700':
-        raise PcscError(
-            'Error—Process aborted: Ne definitively not accepted (6700)')
+        case ('6C', _):
+            # Case 2S.3—Process aborted; Ne not accepted, Na indicated
+            return transmit(hcard, Protocol.T0, command_apdu.update_Le(response_apdu.SW2()))
 
-    # Case 2S.3—Process aborted; Ne not accepted, Na indicated
-    if SW1 == '6C':
-        return transmit(hcard, Protocol.T0, header + SW2)
+        case (sw1, _) if sw1.startswith('9'):
+            # Case 2S.4—SW12 = '9XYZ', except for '9000'
+            return response_apdu
 
-    # Case 2S.4—SW12 = '9XYZ', except for '9000'
-    if SW1.startswith('9'):
-        return data, SW1, SW2
+        case ('6B', '00'):
+            raise PcscError(
+                'Checking error: Wrong parameters P1-P2 (6B00)')
 
-    raise PcscError(F'Unknown command case (data={data}, SW12={SW1}{SW2})')
+        case ('6D', '00'):
+            raise PcscError(
+                'Checking error: Instruction code not supported or invalid (6D00)')
 
+        case ('6E', '00'):
+            raise PcscError(
+                'Checking error: Class not supported (6E00)')
 
-def _send_apdu_T0_case_3s(hcard, header: str, Lc: str, data: str):
-    """send_apdu_T0_case_3s():
-    """
-    # Short Lc field
-    if len(Lc) == 2:
-        pass
-    # Data field too long
-    else:
-        raise PcscError(F"Data field too long: {Lc}")
+        case ('6F', '00'):
+            raise PcscError(
+                'Checking error: No precise diagnostis (6F00)')
 
-    return transmit(hcard, Protocol.T0, header + Lc + data)
+        case _:
+            raise PcscError(F"Unknown error-{response_apdu.SW12()}")
 
 
-def _send_apdu_T0_case_4s(hcard, header: str, Lc: str, data: str, Le: str):
+def _send_apdu_T0_case_3s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
+    logging.debug('Command APDU Case 3s')
+    response_apdu = transmit(hcard, Protocol.T0, command_apdu)
+
+    match (response_apdu.SW1(), response_apdu.SW2()):
+        case ('90', '00') | ('61', _):
+            # Normal processing
+            return response_apdu
+
+        case ('62', _) | ('63', _):
+            # Warning processing
+            return response_apdu
+
+        case ('64', _) | ('65', _) | ('66', _):
+            # Execution error
+            raise PcscError(F"Execution error-{response_apdu.SW12()}")
+
+        case ('67', '00') | ('68', _) | ('69', _) | ('6A', _) | ('6B', '00') | ('6C', _) | ('6D', '00') | ('6E', '00') | ('6F', '00'):
+            # Checking error
+            raise PcscError(F"Checking error-{response_apdu.SW12()}")
+
+        case _:
+            raise PcscError(F"Unknown error-{response_apdu.SW12()}")
+
+
+def _send_apdu_T0_case_4s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
+    logging.debug('Command APDU Case 4S')
     """send_apdu_T0_case_4s():
     """
-    # Short Lc field
-    if len(Lc) == 2:
-        pass
-    # Data field too long
-    else:
-        raise PcscError(F"Data field too long: {Lc}")
+    response_apdu = transmit(hcard, Protocol.T0, command_apdu)
 
-    # Short Le field
-    if len(Le) == 2:
-        pass
-    # Wrong Le field
-    else:
-        raise PcscError(F'Wrong Le value: {Le}')
+    match (response_apdu.SW1(), response_apdu.SW2()):
+        case ('64', _) | ('65', _) | ('66', _):
+            # Case 4S.1—Process aborted
+            raise PcscError(
+                F"Execution error-Process aborted:{response_apdu.SW12()}")
 
-    data, SW1, SW2 = transmit(hcard, Protocol.T0, header + Lc + data + Le)
-    # Case 4S.1—Process aborted
-    if SW1[0] == '6' and SW1[1] in '0456789ABCDEF':
-        raise PcscError(
-            F'Error—Process aborted (data={data}, SW12={SW1}{SW2})')
-    # Case 4S.2—Process completed
-    if SW1+SW2 == '9000':
-        # Send GET RESPONSE
-        return _send_apdu_T0_case_2s(hcard, Protocol.T0, header[0:2] + 'C00000', Le)
-    # Case 4S.3—Process completed with information added
-    if SW1 == '61':
-        if Le == '00':
-            Ne = '100'
-        else:
-            Ne = Le
-        return _send_apdu_T0_case_2s(hcard, Protocol.T0, header[0:2] + 'C00000', _min(Ne, SW2))
-    # Case 4S.4—SW12 = '62XY', or '63XY', or '9XYZ', except for '9000'
-    if SW1.startswith('9') or SW1 in ['62', '63']:
-        return data, SW1, SW2
+        case ('67', '00') | ('68', _) | ('69', _) | ('6A', _) | ('6B', '00') | ('6C', _) | ('6D', '00') | ('6E', '00') | ('6F', '00'):
+            # Case 4S.1—Process aborted
+            raise PcscError(
+                F"Checking error-Process aborted:{response_apdu.SW12()}")
 
-    raise PcscError(F'Unknown command case (data={data}, SW12={SW1}{SW2})')
+        case ('90', '00'):
+            # Case 4S.2—Process completed
+            # Send GET RESPONSE with same Le
+            return _send_apdu_T0_case_2s(hcard, _GET_RESPONSE(command_apdu.CLA(), command_apdu.Le()))
+
+        case ('61', sw2):
+            # Case 4S.3—Process completed with information added
+            Nx = int(sw2, 16)
+            if command_apdu.Le() == '00':
+                Ne = 0x100
+            else:
+                Ne = int(command_apdu.Le(), 16)
+
+            Ne = min(Ne, Nx)
+            return _send_apdu_T0_case_2s(hcard, _GET_RESPONSE(command_apdu.CLA(), F"{Ne:02X}"))
+
+        case ('62', _) | ('63', _):
+            # Case 4S.4—SW12 = '62XY' or '63XY'
+            return response_apdu
+
+        case (sw1, _) if sw1.startswith('9'):
+            # Case 4S.4—SW12 = '9XYZ', except for '9000'
+            return response_apdu
+
+        case _:
+            raise PcscError(F'Unknown command case-{response_apdu.SW12()}')
 
 
 def get_status_change(hcontext, reader_states=None, timeout=None):
@@ -441,7 +448,7 @@ def get_status_change(hcontext, reader_states=None, timeout=None):
     new_reader_states = list(
         map(_convert_reader_state_from_scard, new_reader_states))
 
-    logging.debug(F"new reader states: {', '.join(new_reader_states)}")
+    logging.debug(F"new reader states: {', '.join(new_reader_states.name)}")
     return new_reader_states
 
 
