@@ -74,13 +74,18 @@ def READ_RECORD(SFI: int, record: int) -> CommandApdu:
     return CommandApdu.from_dict(apdu)
 
 
-def GET_DATA(tag: str) -> CommandApdu:
+def GET_DATA(tag: Union[str, GetDataObject]) -> CommandApdu:
     """GET_DATA: generate APDU for GET DATA command
     """
     apdu = {CommandField.Class: '80',
             CommandField.Instruction: 'CA',
-            CommandField.P1: tag[0:2],
-            CommandField.P2: tag[2:4],
             CommandField.Le: '00'}
+
+    if tag in GetDataObject:
+        apdu[CommandField.P1] = tag.value[0:2]
+        apdu[CommandField.P2] = tag.value[2:4]
+    else:
+        apdu[CommandField.P1] = _clean(tag[0:2])
+        apdu[CommandField.P2] = _clean(tag[2:4])
 
     return CommandApdu.from_dict(apdu)
