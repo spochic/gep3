@@ -176,6 +176,15 @@ class CommandApdu:
     def CLA(self):
         return self.get_field(CommandField.Class)
 
+    def INS(self):
+        return self.get_field(CommandField.Instruction)
+
+    def P1(self):
+        return self.get_field(CommandField.P1)
+
+    def P2(self):
+        return self.get_field(CommandField.P2)
+
     def Le(self):
         return self.get_field(CommandField.Le)
 
