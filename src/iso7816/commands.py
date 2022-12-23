@@ -1,4 +1,4 @@
-"""iso7816.py
+"""commands.py
 """
 
 # Standard library imports
@@ -49,8 +49,8 @@ def SELECT(secure_messaging: SecureMessaging, chaining: Chaining, logical_channe
     apdu_dict = {CommandField.Class: CLA(secure_messaging, chaining, logical_channel).str(),
                  CommandField.Instruction: 'A4'}
 
-    apdu_dict[CommandField.P1] = selection
-    apdu_dict[CommandField.P2] = file_occurrence + fci
+    apdu_dict[CommandField.P1] = F"{selection:02x}"
+    apdu_dict[CommandField.P2] = F"{file_occurrence + fci:02X}"
 
     if data is not None:
         apdu_dict[CommandField.Data] = _clean(data, 'SELECT()', 'data')
