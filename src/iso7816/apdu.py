@@ -1,4 +1,4 @@
-"""iso7816.py
+"""apdu.py
 """
 
 # Standard library imports
@@ -7,10 +7,10 @@ from enum import Enum
 # Third party imports
 
 # Local application imports
-from .hstr import clean as _clean, to_intlist as _to_intlist
-from .intlist import to_hstr as _to_hstr
+from common.hstr import clean as _clean, to_intlist as _to_intlist
+from common.intlist import to_hstr as _to_hstr
 
-# Definitions
+# Enum Definitions
 
 
 class CommandCase(Enum):
@@ -43,6 +43,8 @@ class ResponseField(Enum):
     SW2 = 'SW2'
     SW12 = 'SW12'
 
+
+# Command and Response APDU classes
 
 class CommandApdu:
     def __init__(self, apdu_str: str):
@@ -256,28 +258,6 @@ class ResponseApdu:
 
     def __str__(self):
         return _to_hstr(self.__list)
-
-
-#
-# Commands for interchange
-#
-
-def GET_RESPONSE(CLA: str, Le: str):
-    return CommandApdu.from_dict({CommandField.Class: CLA, CommandField.Instruction: 'C0', CommandField.P1: '00', CommandField.P2: '00', CommandField.Le: Le})
-
-
-def SELECT(CLA: str, P1: str, P2: str, Identifier: str = None, Le: str = None):
-    apdu_dict = {CommandField.Class: CLA, CommandField.Instruction: 'A4',
-                 CommandField.P1: P1, CommandField.P2: P2}
-
-    if Identifier is not None:
-        apdu_dict[CommandField.Data] = Identifier
-
-    if Le is not None:
-        apdu_dict[CommandField.Le] = Le
-
-    return CommandApdu.from_dict(apdu_dict)
-
 
 #
 # Helper functions
