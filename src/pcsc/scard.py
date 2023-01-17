@@ -57,7 +57,7 @@ from common.hstr import \
     to_intlist as _to_intlist,\
     minimum as _min,\
     clean as _clean
-from common.iso7816 import CommandApdu, ResponseApdu, CommandCase, GET_RESPONSE as _GET_RESPONSE
+from iso7816 import CommandApdu, ResponseApdu, CommandCase, GET_RESPONSE as _GET_RESPONSE
 
 # Enum definitions
 
@@ -255,29 +255,7 @@ def send_apdu(hcard, protocol: Protocol, command_apdu: CommandApdu) -> ResponseA
                     raise PcscError('Case 4e not yet implemented for T=0')
 
         case Protocol.T1:
-            response_apdu = transmit(hcard, protocol, command_apdu)
-
-            match (response_apdu.SW1(), response_apdu.SW2()):
-                case ('90', '00') | ('61', _):
-                    # Normal processing
-                    return response_apdu
-
-                case ('62', _) | ('63', _):
-                    # Warning processing
-                    return response_apdu
-
-                case ('64', _) | ('65', _) | ('66', _):
-                    # Execution error
-                    raise PcscError(
-                        F"Execution error-{response_apdu.SW12()}")
-
-                case ('67', '00') | ('68', _) | ('69', _) | ('6A', _) | ('6B', '00') | ('6C', _) | ('6D', '00') | ('6E', '00') | ('6F', '00'):
-                    raise PcscError(
-                        F"Checking error-{response_apdu.SW12()}")
-
-                case _:
-                    raise PcscError(
-                        F"Unknown error-{response_apdu.SW12()}")
+            return transmit(hcard, protocol, command_apdu)
 
         case _:
             raise PcscError(
@@ -288,26 +266,7 @@ def _send_apdu_T0_case_1(hcard, command_apdu: CommandApdu) -> ResponseApdu:
     """send_apdu_T0_case_1():
     """
     logging.debug('Command APDU Case 1')
-    response_apdu = transmit(hcard, Protocol.T0, command_apdu)
-
-    match (response_apdu.SW1(), response_apdu.SW2()):
-        case ('90', '00') | ('61', _):
-            # Normal processing
-            return response_apdu
-
-        case ('62', _) | ('63', _):
-            # Warning processing
-            return response_apdu
-
-        case ('64', _) | ('65', _) | ('66', _):
-            # Execution error
-            raise PcscError(F"Execution error-{response_apdu.SW12()}")
-
-        case ('67', '00') | ('68', _) | ('69', _) | ('6A', _) | ('6B', '00') | ('6C', _) | ('6D', '00') | ('6E', '00') | ('6F', '00'):
-            raise PcscError(F"Checking error-{response_apdu.SW12()}")
-
-        case _:
-            raise PcscError(F"Unknown error-{response_apdu.SW12()}")
+    return transmit(hcard, Protocol.T0, command_apdu)
 
 
 def _send_apdu_T0_case_2s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
@@ -323,8 +282,7 @@ def _send_apdu_T0_case_2s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
 
         case ('67', '00'):
             # Case 2S.2—Process aborted: Ne definitively not accepted
-            raise PcscError(
-                'Checking error-Process aborted: Ne definitively not accepted (6700)')
+            return response_apdu
 
         case ('6C', _):
             # Case 2S.3—Process aborted; Ne not accepted, Na indicated
@@ -334,49 +292,13 @@ def _send_apdu_T0_case_2s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
             # Case 2S.4—SW12 = '9XYZ', except for '9000'
             return response_apdu
 
-        case ('6B', '00'):
-            raise PcscError(
-                'Checking error: Wrong parameters P1-P2 (6B00)')
-
-        case ('6D', '00'):
-            raise PcscError(
-                'Checking error: Instruction code not supported or invalid (6D00)')
-
-        case ('6E', '00'):
-            raise PcscError(
-                'Checking error: Class not supported (6E00)')
-
-        case ('6F', '00'):
-            raise PcscError(
-                'Checking error: No precise diagnostis (6F00)')
-
         case _:
-            raise PcscError(F"Unknown error-{response_apdu.SW12()}")
+            return response_apdu
 
 
 def _send_apdu_T0_case_3s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
     logging.debug('Command APDU Case 3s')
-    response_apdu = transmit(hcard, Protocol.T0, command_apdu)
-
-    match (response_apdu.SW1(), response_apdu.SW2()):
-        case ('90', '00') | ('61', _):
-            # Normal processing
-            return response_apdu
-
-        case ('62', _) | ('63', _):
-            # Warning processing
-            return response_apdu
-
-        case ('64', _) | ('65', _) | ('66', _):
-            # Execution error
-            raise PcscError(F"Execution error-{response_apdu.SW12()}")
-
-        case ('67', '00') | ('68', _) | ('69', _) | ('6A', _) | ('6B', '00') | ('6C', _) | ('6D', '00') | ('6E', '00') | ('6F', '00'):
-            # Checking error
-            raise PcscError(F"Checking error-{response_apdu.SW12()}")
-
-        case _:
-            raise PcscError(F"Unknown error-{response_apdu.SW12()}")
+    return transmit(hcard, Protocol.T0, command_apdu)
 
 
 def _send_apdu_T0_case_4s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
@@ -388,13 +310,27 @@ def _send_apdu_T0_case_4s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
     match (response_apdu.SW1(), response_apdu.SW2()):
         case ('64', _) | ('65', _) | ('66', _):
             # Case 4S.1—Process aborted
-            raise PcscError(
-                F"Execution error-Process aborted:{response_apdu.SW12()}")
+            return response_apdu
 
-        case ('67', '00') | ('68', _) | ('69', _) | ('6A', _) | ('6B', '00') | ('6C', _) | ('6D', '00') | ('6E', '00') | ('6F', '00'):
+        case ('67', '00') | ('68', _) | ('69', _) | ('6A', _) | ('6C', _):
             # Case 4S.1—Process aborted
-            raise PcscError(
-                F"Checking error-Process aborted:{response_apdu.SW12()}")
+            return response_apdu
+
+        case ('6B', '00'):
+            # Case 4S.1—Process aborted
+            return response_apdu
+
+        case ('6D', '00'):
+            # Case 4S.1—Process aborted
+            return response_apdu
+
+        case ('6E', '00'):
+            # Case 4S.1—Process aborted
+            return response_apdu
+
+        case ('6F', '00'):
+            # Case 4S.1—Process aborted
+            return response_apdu
 
         case ('90', '00'):
             # Case 4S.2—Process completed
@@ -421,7 +357,7 @@ def _send_apdu_T0_case_4s(hcard, command_apdu: CommandApdu) -> ResponseApdu:
             return response_apdu
 
         case _:
-            raise PcscError(F'Unknown command case-{response_apdu.SW12()}')
+            return response_apdu
 
 
 def get_status_change(hcontext, reader_states=None, timeout=None):
