@@ -98,7 +98,7 @@ class CLA:
             match self.__secure_messaging:
                 case SecureMessaging.No:
                     CLA += 0x00
-                case SecureMessaging.GlobalPlatform:
+                case SecureMessaging.Proprietary:
                     CLA += 0x04
                 case SecureMessaging.Iso7816:
                     CLA += 0x08
