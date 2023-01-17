@@ -9,11 +9,11 @@ from typing import Union
 
 # Local application imports
 from common.ber import encode
-from common.iso7816 import CommandApdu, CommandField
 from common.hstr import clean as _clean
+from iso7816.apdu import CommandApdu, CommandField
 
 
-# Definitions
+# Enum Definitions
 
 
 class ApplicationIdentifier(Enum):
@@ -31,6 +31,9 @@ class GetDataObject(Enum):
     LastOnlineATCRegister = '9F13'
     PINTryCounter = '9F17'
     LogFormat = '9F4f'
+
+
+# Command APDUs defined by EMV
 
 
 def SELECT(aid: Union[str, ApplicationIdentifier]) -> CommandApdu:
