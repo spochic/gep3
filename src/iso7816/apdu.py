@@ -44,7 +44,14 @@ class ResponseField(Enum):
     SW12 = 'SW12'
 
 
+class ResponseProcessingState(Enum):
+    Normal = 'Normal procesing'
+    Warning = 'Warning processing'
+    ExecutionError = 'Execution error'
+    CheckingError = 'Checking error'
+
 # Command and Response APDU classes
+
 
 class CommandApdu:
     def __init__(self, apdu_str: str):
@@ -220,6 +227,97 @@ class CommandApdu:
                                               CommandField.Le: Le})
 
 
+class StatusBytes:
+    def __init__(self, sw12: str):
+        self.__list = _to_intlist(sw12, "StatusBytes.__init__()", "sw12")
+        if len(self.__list) != 2:
+            raise ValueError(F"Expected 2 bytes, received: {sw12}")
+
+        first_digit = self.__list[0] >> 4
+        if first_digit not in [0x6, 0x9]:
+            raise ValueError(F"Expected 6XXX or 9XXX value, received: {sw12}")
+
+        if self.__list[0] == 0x60:
+            raise ValueError(F"60XX in valid, received: {sw12}")
+
+        match self.__list:
+            case [0x90, 0x00]:
+                self.__state = ResponseProcessingState.Normal
+                self.__meaning = 'No further qualification'
+            case [0x61, _]:
+                self.__state = ResponseProcessingState.Normal
+                self.__meaning = 'SW2 encodes the number of data bytes still available'
+            case [0x62, sw2]:
+                self.__state = ResponseProcessingState.Warning
+                self.__meaning = {0x00: 'No information given',
+                                  0x81: 'Part of returned data may be corrupted',
+                                  0x82: 'End of file or record reached before reading Ne bytes',
+                                  0x83: 'Selected file deactivated',
+                                  0x84: 'File control information not formatted according to ISO7816-4 5.3.3',
+                                  0x85: 'Selected file in termination state',
+                                  0x86: 'No input data available from a sensor on the card'}.get(sw2, 'State of non-volatile memory is unchanged')
+            case [0x63, sw2]:
+                self.__state = ResponseProcessingState.Warning
+                self.__meaning = {0x00: 'No information given',
+                                  0x81: 'File filled up by the last '}.get(sw2, 'State of non-volatile memory has changed(further qualification in SW2)')
+            case [0x64, sw2]:
+                self.__state = ResponseProcessingState.ExecutionError
+                self.__meaning = {0x00: 'Execution error',
+                                  0x01: 'Immediate response required by the card'}.get(sw2, 'State of non-volatile memory is unchanged (further qualification in SW2)')
+            case [0x65, sw2]:
+                self.__state = ResponseProcessingState.ExecutionError
+                self.__meaning = {0x00: 'No information given',
+                                  0x81: 'Memory failure'}.get(sw2, 'State of non-volatile memory has changed (further qualification in SW2)')
+            case [0x66, _]:
+                self.__state = ResponseProcessingState.ExecutionError
+                self.__meaning = 'Security-related issues'
+            case [0x67, 0x00]:
+                self.__state = ResponseProcessingState.CheckingError
+                self.__meaning = 'Wrong length; no further indication'
+            case [0x68, sw2]:
+                self.__state = ResponseProcessingState.CheckingError
+                self.__meaning = {0x00: 'No information given',
+                                  0x81: 'Logical channel not supported',
+                                  0x82: 'Secure messaging not supported',
+                                  0x83: 'Last command of the chain expected',
+                                  0x84: 'Command chaining not supported'}.get(sw2, 'Functions in CLA not supported (further qualification in SW2)')
+            case [0x69, sw2]:
+                self.__state = ResponseProcessingState.CheckingError
+                self.__meaning = {0x00: 'No information given',
+                                  0x81: 'Command incompatible with file structure',
+                                  0x82: 'Security status not satisfied',
+                                  0x83: 'Authentication method blocked',
+                                  0x84: 'Reference data not usable',
+                                  0x85: 'Conditions of use not satisfied',
+                                  0x86: 'Command not allowed (no current EF)',
+                                  0x87: 'Expected secure messaging data objects missing',
+                                  0x88: 'Incorrect secure messaging data objects'}.get(sw2, 'Command not allowed (further qualification in SW2)')
+            case [0x6A, _]:
+                self.__state = ResponseProcessingState.CheckingError
+                self.__meaning = 'Wrong parameters P1-P2 (further qualification in SW2)'
+            case [0x6B, 0x00]:
+                self.__state = ResponseProcessingState.CheckingError
+                self.__meaning = 'Wrong parameters P1-P2'
+            case [0x6C, _]:
+                self.__state = ResponseProcessingState.CheckingError
+                self.__meaning = 'Wrong Le field; SW2 encodes the exact number of available data bytes'
+            case [0x6D, 0x00]:
+                self.__state = ResponseProcessingState.CheckingError
+                self.__meaning = 'Instruction code not supported or invalid'
+            case [0x6E, 0x00]:
+                self.__state = ResponseProcessingState.CheckingError
+                self.__meaning = 'Class not supported'
+            case [0x6F, 0x00]:
+                self.__state = ResponseProcessingState.CheckingError
+                self.__meaning = 'No precise diagnosis'
+
+    def state(self):
+        return self.__state
+
+    def meaning(self):
+        return self.__meaning
+
+
 class ResponseApdu:
     def __init__(self, apdu_str: str):
         self.__list = _to_intlist(
@@ -264,6 +362,9 @@ class ResponseApdu:
 
     def SW2(self):
         return self.get_field(ResponseField.SW2)
+
+    def StatusBytes(self):
+        return StatusBytes(self.get_field(ResponseField.SW12))
 
     def __str__(self):
         return _to_hstr(self.__list)
