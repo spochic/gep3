@@ -24,7 +24,7 @@ class Selection(IntEnum):
     SelectFromCurrentDF = 0x09
 
 
-class FileOccurance(IntEnum):
+class FileOccurrence(IntEnum):
     FirstOrOnlyOccurrence = 0x0
     LastOccurrence = 0x1
     NextOccurrence = 0x2
@@ -45,7 +45,7 @@ def GET_RESPONSE(CLA: str, Le: str):
     return CommandApdu.from_dict({CommandField.Class: CLA, CommandField.Instruction: 'C0', CommandField.P1: '00', CommandField.P2: '00', CommandField.Le: Le})
 
 
-def SELECT(secure_messaging: SecureMessaging, chaining: Chaining, logical_channel: int, selection: Selection, file_occurrence: FileOccurance, fci: FileControlInformation, data: str = None, Le: str = None) -> CommandApdu:
+def SELECT(secure_messaging: SecureMessaging, chaining: Chaining, logical_channel: int, selection: Selection, file_occurrence: FileOccurrence, fci: FileControlInformation, data: str = None, Le: str = None) -> CommandApdu:
     apdu_dict = {CommandField.Class: CLA(secure_messaging, chaining, logical_channel).str(),
                  CommandField.Instruction: 'A4'}
 
