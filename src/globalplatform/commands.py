@@ -9,7 +9,7 @@ from typing import Union
 
 # Local application imports
 from common.hstr import clean as _clean
-from gp.encodings import SecureMessaging, CLA as GP_CLA
+from globalplatform.encodings import SecureMessaging, CLA as GP_CLA
 from iso7816 import CommandApdu, CommandField, CLA as ISO_CLA, Chaining
 
 
@@ -27,6 +27,7 @@ class GetDataObject(Enum):
     SecurityDomainManagerURL = '5F50'
     ConfirmationCounter = '00C2'
     SequenceCounterOfTheDefaultKeyVersionNumber = '00C1'
+    CardProductionLifeCycle = '9F7F'
 
 
 class FileOccurrence(IntEnum):
