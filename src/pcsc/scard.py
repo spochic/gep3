@@ -198,13 +198,13 @@ def status(hcard):
         raise PcscError(err)
 
     protocol = Protocol(dw_protocol)
-    state = []
+    states = []
     for scard_state in State:
         if dw_state & scard_state:
-            state.append(scard_state)
+            states.append(scard_state)
     logging.debug(
-        F"Card status: reader='{reader}', state={state.name}, protocol={protocol.name}, ATR={_to_hstr(atr)}")
-    return reader, state, protocol, _to_hstr(atr)
+        F"Card status: reader='{reader}', state(s)={' '.join([state.name for state in states])}, protocol={protocol.name}, ATR={_to_hstr(atr)}")
+    return reader, states, protocol, _to_hstr(atr)
 
 
 def transmit(hcard, protocol: Protocol, command_apdu: CommandApdu) -> ResponseApdu:
