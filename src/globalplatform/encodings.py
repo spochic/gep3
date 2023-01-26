@@ -19,6 +19,26 @@ class SecureMessaging(Enum):
     Iso7816_CMAC = 'Secure messaging - ISO7816 standard, command header authenticated (C-MAC)'
 
 
+class CardPersonalizationLifeCycleData(Enum):
+    ICFabricator = "IC Fabricator"
+    ICType = "IC Type"
+    OperatingSystemIdentifier = "Operating System Identifier"
+    OperatingSystemReleaseDate = "Operating System Release Date"
+    OperatingSystemReleaseLevel = "Operating System Release Level"
+    ICFabricationDate = "IC Fabrication Date"
+    ICSerialNumber = "IC Serial Number"
+    ICBatchIdentifier = "IC Batch Identifier"
+    ICModuleFabricator = "IC Module Fabricator"
+    ICModulePackagingDate = "IC Module Packaging Date"
+    ICCManufacturer = "ICC Manufacturer"
+    ICEmbeddingDate = "IC Embedding Date"
+    ICPrePersonalizer = "IC Pre-Personalizer"
+    ICPrePersonalizationDate = "IC Pre-Personalization Date"
+    ICPrePersonalizationEquipmentIdentifier = "IC Pre-Personalization Equipment Identifier"
+    ICPersonalizer = "IC Personalizer"
+    ICPersonalizationDate = "IC Personalization Date"
+    ICPersonalizationEquipmentIdentifier = "IC Personalization Equipment Identifier"
+
 # Class Definitions
 
 
@@ -102,3 +122,44 @@ class CLA:
 
     def str(self) -> str:
         return F"{self.value():02X}"
+
+
+class CPLC:
+    def __init__(self, data: str):
+        cplc_data = _clean(
+            data, "globalplatform.encodings.CPLC.__init__()", "data")
+        if len(cplc_data) != 84:
+            raise ValueError(
+                F"CPLC data should be 42 bytes, received {len(cplc_data)//2} bytes: {cplc_data}")
+        else:
+            self.__cplc_data = cplc_data
+
+    def get_field(self, data: CardPersonalizationLifeCycleData):
+        pos, length = _CPLC_DATA_DEFINITION[data]
+        return self.__cplc_data[2*pos:2*(pos+length)]
+
+    def str(self):
+        return self.__cplc_data
+
+
+# Helper functions
+_CPLC_DATA_DEFINITION = {
+    CardPersonalizationLifeCycleData.ICFabricator: (0, 2),
+    CardPersonalizationLifeCycleData.ICType: (2, 2),
+    CardPersonalizationLifeCycleData.OperatingSystemIdentifier: (4, 2),
+    CardPersonalizationLifeCycleData.OperatingSystemReleaseDate: (6, 2),
+    CardPersonalizationLifeCycleData.OperatingSystemReleaseLevel: (8, 2),
+    CardPersonalizationLifeCycleData.ICFabricationDate: (10, 2),
+    CardPersonalizationLifeCycleData.ICSerialNumber: (12, 4),
+    CardPersonalizationLifeCycleData.ICBatchIdentifier: (16, 2),
+    CardPersonalizationLifeCycleData.ICModuleFabricator: (18, 2),
+    CardPersonalizationLifeCycleData.ICModulePackagingDate: (20, 2),
+    CardPersonalizationLifeCycleData.ICCManufacturer: (22, 2),
+    CardPersonalizationLifeCycleData.ICEmbeddingDate: (24, 2),
+    CardPersonalizationLifeCycleData.ICPrePersonalizer: (26, 2),
+    CardPersonalizationLifeCycleData.ICPrePersonalizationDate: (28, 2),
+    CardPersonalizationLifeCycleData.ICPrePersonalizationEquipmentIdentifier: (30, 4),
+    CardPersonalizationLifeCycleData.ICPersonalizer: (34, 2),
+    CardPersonalizationLifeCycleData.ICPersonalizationDate: (36, 2),
+    CardPersonalizationLifeCycleData.ICPersonalizationEquipmentIdentifier: (38, 4),
+}
