@@ -120,7 +120,7 @@ def establish_context(dw_scope: Scope):
         logging.error(err)
         raise PcscError(err)
 
-    logging.info(F"PC/SC context established with scope={dw_scope.name}")
+    logging.info(F"PC/SC context established with scope: {dw_scope.name}")
     return hcontext
 
 
@@ -173,8 +173,10 @@ def connect(hcontext, reader, dw_share_mode: ShareMode, dw_preferred_protocols: 
         raise PcscError(err)
 
     protocol = Protocol(dw_active_protocol)
-    logging.info(
-        F"Connected with mode={dw_share_mode.name}, protocol={protocol.name}")
+
+    logging.info(F"Connected with share mode: {dw_share_mode.name}")
+    logging.info(F"Connected with active protocol: {protocol.name}")
+
     return hcard, protocol
 
 
@@ -190,8 +192,11 @@ def reconnect(hcard, dw_share_mode: ShareMode, dw_preferred_protocols: Protocol,
         raise PcscError(err)
 
     active_protocol = Protocol(dw_active_protocol)
-    logging.info(
-        F"Reconnected with mode={dw_share_mode.name}, disposition={dw_initialization.name}, protocol={active_protocol.name}")
+
+    logging.info(F"Reconnected with share mode: {dw_share_mode.name}")
+    logging.info(F"Reconnected with disposition: {dw_initialization.name}")
+    logging.info(F"Reconnected with active protocol: {active_protocol.name}")
+
     return active_protocol
 
 
@@ -210,8 +215,19 @@ def status(hcard):
     for scard_state in State:
         if dw_state & scard_state:
             states.append(scard_state)
-    logging.info(
-        F"Card status: reader='{reader}', state(s)={' '.join([state.name for state in states])}, protocol={protocol.name}, ATR={_to_hstr(atr)}")
+
+    logging.info(F"Card ATR: {_to_hstr(atr)}")
+    logging.info(F"Card connected with active protocol: {protocol.name}")
+    logging.info(F"Card in reader: {reader}")
+    l = len(states)
+    match l:
+        case 0:
+            logging.info("No card state found")
+        case 1:
+            logging.info(F"Card state: {states[0]}")
+        case _:
+            logging.info(F"{l} card states found: {', '.join(states)}")
+
     return reader, states, protocol, _to_hstr(atr)
 
 
