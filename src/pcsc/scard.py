@@ -224,9 +224,10 @@ def status(hcard):
         case 0:
             logging.info("No card state found")
         case 1:
-            logging.info(F"Card state: {states[0]}")
+            logging.info(F"Card state: {states[0].name}")
         case _:
-            logging.info(F"{l} card states found: {', '.join(states)}")
+            logging.info(
+                F"{l} card states found: {', '.join([state.name for state in states])}")
 
     return reader, states, protocol, _to_hstr(atr)
 
