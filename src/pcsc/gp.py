@@ -9,7 +9,7 @@ from typing import Union
 # Local application imports
 from common.ber import parse_to_dict
 from globalplatform import SELECT as _SELECT, GET_DATA as _GET_DATA, FileOccurrence, ApplicationIdentifier, SecureMessaging, GetDataObject
-from globalplatform.encodings import CPLC
+from globalplatform.encodings import CPLC, CardPersonalizationLifeCycleData
 from pcsc.scard import Protocol, send_apdu
 
 
