@@ -24,6 +24,9 @@ def GET_CPLC(hcard, protocol: Protocol, secure_messaging: SecureMessaging, logic
     r = send_apdu(hcard, protocol, _GET_DATA(secure_messaging,
                   logical_channel, GetDataObject.CardProductionLifeCycle))
 
-    cplc_data = CPLC(parse_to_dict(r.data()).get('9F7F', {}))
+    if r.SW12() == '9000':
+        cplc_data = CPLC(parse_to_dict(r.data()).get('9F7F', {}))
+    else:
+        cplc_data = None
 
     return cplc_data
