@@ -14,6 +14,10 @@ from pcsc.scard import Protocol, send_apdu
 
 def GET_MULTOS_DATA(hcard, protocol: Protocol) -> MultosData:
     r = send_apdu(hcard, protocol, _GET_MULTOS_DATA())
-    multos_data = MultosData(r.data())
+
+    if r.SW12() == '9000':
+        multos_data = MultosData(r.data())
+    else:
+        multos_data = None
 
     return multos_data
