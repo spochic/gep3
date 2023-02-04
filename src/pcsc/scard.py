@@ -59,9 +59,8 @@ from common.hstr import \
     clean as _clean
 from iso7816 import CommandApdu, ResponseApdu, CommandCase, GET_RESPONSE as _GET_RESPONSE
 
+
 # Enum definitions
-
-
 class Scope(IntEnum):
     User = _SCARD_SCOPE_USER
     System = _SCARD_SCOPE_SYSTEM
@@ -104,13 +103,11 @@ class Attribute(IntEnum):
 
 
 # Exception definition
-
 class PcscError(Exception):
     pass
 
 
 # Functions definitions
-
 def establish_context(dw_scope: Scope):
     """establish_context():
     """
@@ -121,6 +118,7 @@ def establish_context(dw_scope: Scope):
         raise PcscError(err)
 
     logging.info(F"PC/SC context established with scope: {dw_scope.name}")
+
     return hcontext
 
 
@@ -159,6 +157,7 @@ def list_readers_serialno(hcontext, readers):
 
     logging.info(
         F"Serial nos listed: {', '.join([F'{r} ({s})' for r,s in zip(readers, serial_nos)])}")
+
     return serial_nos
 
 
@@ -174,8 +173,8 @@ def connect(hcontext, reader, dw_share_mode: ShareMode, dw_preferred_protocols: 
 
     protocol = Protocol(dw_active_protocol)
 
-    logging.info(F"Connected with share mode: {dw_share_mode.name}")
-    logging.info(F"Connected with active protocol: {protocol.name}")
+    logging.info(
+        F"Connected with share mode = {dw_share_mode.name} and active protocol = {protocol.name}")
 
     return hcard, protocol
 
@@ -193,9 +192,8 @@ def reconnect(hcard, dw_share_mode: ShareMode, dw_preferred_protocols: Protocol,
 
     active_protocol = Protocol(dw_active_protocol)
 
-    logging.info(F"Reconnected with share mode: {dw_share_mode.name}")
-    logging.info(F"Reconnected with disposition: {dw_initialization.name}")
-    logging.info(F"Reconnected with active protocol: {active_protocol.name}")
+    logging.info(
+        F"Reconnected with share mode = {dw_share_mode.name}, disposition = {dw_initialization.name}, and active protocol = {active_protocol.name}")
 
     return active_protocol
 
@@ -216,9 +214,9 @@ def status(hcard):
         if dw_state & scard_state:
             states.append(scard_state)
 
-    logging.info(F"Card ATR: {_to_hstr(atr)}")
-    logging.info(F"Card connected with active protocol: {protocol.name}")
-    logging.info(F"Card in reader: {reader}")
+    logging.info(
+        F"Card in reader {reader}, with ATR = {_to_hstr(atr)} and active protocol = {protocol.name},")
+
     l = len(states)
     match l:
         case 0:
@@ -246,8 +244,8 @@ def transmit(hcard, protocol: Protocol, command_apdu: CommandApdu) -> ResponseAp
         raise PcscError(err)
 
     response_apdu = ResponseApdu.from_list(response)
-    logging.debug(F"Tx->{command_apdu.str()}")
-    logging.debug(F"Rx<-{response_apdu.str()}")
+    logging.debug(F"Tx-> {command_apdu.str()}")
+    logging.debug(F"Rx<- {response_apdu.str()}")
 
     return response_apdu
 
@@ -409,7 +407,8 @@ def get_status_change(hcontext, reader_states=None, timeout=None):
     new_reader_states = list(
         map(_convert_reader_state_from_scard, new_reader_states))
 
-    logging.info(F"new reader states: {', '.join(new_reader_states.name)}")
+    logging.info(F"New reader states: {', '.join(new_reader_states.name)}")
+
     return new_reader_states
 
 
