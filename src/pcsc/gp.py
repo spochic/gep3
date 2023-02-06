@@ -9,7 +9,7 @@ from typing import Union
 # Local application imports
 from common.ber import parse_to_dict
 from globalplatform import SELECT as _SELECT, GET_DATA as _GET_DATA, FileOccurrence, ApplicationIdentifier, SecureMessaging, GetDataObject, CPLC, CardPersonalizationLifeCycleData
-from pcsc.scard import Protocol, send_apdu
+from pcsc.card import Protocol, send_apdu
 
 
 def SELECT(hcard, protocol: Protocol, logical_channel: int, file_occurrence: FileOccurrence, application_identifier: ApplicationIdentifier):
@@ -21,12 +21,14 @@ def GET_DATA(hcard, protocol: Protocol, secure_messaging: SecureMessaging, logic
 
 
 def GET_CPLC(hcard, protocol: Protocol, secure_messaging: SecureMessaging, logical_channel: int):
-    r = send_apdu(hcard, protocol, _GET_DATA(secure_messaging,
-                  logical_channel, GetDataObject.CardProductionLifeCycle))
+    r, error = send_apdu(hcard, protocol, _GET_DATA(secure_messaging,
+                                                    logical_channel,
+                                                    GetDataObject.CardProductionLifeCycle))
 
-    if r.SW12() == '9000':
-        cplc_data = CPLC(parse_to_dict(r.data()).get('9F7F', {}))
+    if error is not None:
+        return None, error
+    elif r.SW12() != '9000':
+        return None, F"Response bytes to GET [CPLC] DATA is not 9000 (SW12 = {r.SW12()})"
     else:
-        cplc_data = None
-
-    return cplc_data
+        cplc_data = CPLC(parse_to_dict(r.data()).get('9F7F', {}))
+        return cplc_data, None
