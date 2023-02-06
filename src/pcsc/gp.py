@@ -12,15 +12,15 @@ from globalplatform import SELECT as _SELECT, GET_DATA as _GET_DATA, FileOccurre
 from pcsc.card import Protocol, send_apdu
 
 
-def SELECT(hcard, protocol: Protocol, logical_channel: int, file_occurrence: FileOccurrence, application_identifier: ApplicationIdentifier):
+def SELECT(hcard, protocol: Protocol, logical_channel: int = 0, file_occurrence: FileOccurrence = FileOccurrence.FirstOrOnlyOccurrence, application_identifier: ApplicationIdentifier = ApplicationIdentifier.Default):
     return send_apdu(hcard, protocol, _SELECT(logical_channel, file_occurrence, application_identifier))
 
 
-def GET_DATA(hcard, protocol: Protocol, secure_messaging: SecureMessaging, logical_channel: int, tag: Union[str, GetDataObject]):
+def GET_DATA(hcard, protocol: Protocol, tag: Union[str, GetDataObject], secure_messaging: SecureMessaging = SecureMessaging.No, logical_channel: int = 0):
     return send_apdu(hcard, protocol, _GET_DATA(secure_messaging, logical_channel, tag))
 
 
-def GET_CPLC(hcard, protocol: Protocol, secure_messaging: SecureMessaging, logical_channel: int):
+def GET_CPLC(hcard, protocol: Protocol, secure_messaging: SecureMessaging = SecureMessaging.No, logical_channel: int = 0):
     r, error = send_apdu(hcard, protocol, _GET_DATA(secure_messaging,
                                                     logical_channel,
                                                     GetDataObject.CardProductionLifeCycle))
