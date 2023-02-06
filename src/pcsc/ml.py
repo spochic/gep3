@@ -7,7 +7,7 @@ from typing import Union
 # Third party imports
 
 # Local application imports
-from multos import GET_MULTOS_DATA as _GET_MULTOS_DATA, MultosData
+from multos import GET_MULTOS_DATA as _GET_MULTOS_DATA, MultosData, MultosDataField
 from pcsc.card import Protocol, send_apdu
 
 
