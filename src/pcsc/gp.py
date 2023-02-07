@@ -32,3 +32,22 @@ def GET_CPLC(hcard, protocol: Protocol, secure_messaging: SecureMessaging = Secu
     else:
         cplc_data = CPLC(parse_to_dict(r.data()).get('9F7F', {}))
         return cplc_data, None
+
+
+def SELECT_CARD_MANAGER_and_GET_CPLC_DATA(hcard,
+                                          protocol: Protocol):
+    r, error = SELECT(
+        hcard, protocol, 0, FileOccurrence.FirstOrOnlyOccurrence, ApplicationIdentifier.Default)
+    if error is not None:
+        return None, F"Error selecting the Card Manager ({error})"
+
+    elif sw12 := r.SW12() != '9000':
+        return None, F"Error selecting the Card Manager (SW12 = {sw12})"
+
+    else:
+        cplc_data, error = GET_CPLC(hcard, protocol, SecureMessaging.No, 0)
+        if error is not None:
+            return None, F"Error getting the CPLC data ({error})"
+
+        else:
+            return cplc_data, None
