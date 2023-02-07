@@ -56,6 +56,24 @@ def reconnect(hcard, dw_share_mode: ShareMode, dw_preferred_protocols: Protocol,
         return None, str(e)
 
 
+def connect_and_reconnect(hcontext, reader, dw_share_mode: ShareMode, dw_preferred_protocols: Protocol, dw_initialization: Disposition):
+    """connect_and_reconnect()
+    """
+    r, error = connect(hcontext, reader, dw_share_mode, dw_preferred_protocols)
+    if error is not None:
+        return None, error
+
+    else:
+        hcard, protocol = r
+        active_protocol, error = reconnect(
+            hcard, dw_share_mode, protocol, dw_initialization)
+        if error is not None:
+            return None, error
+
+        else:
+            return (hcard, active_protocol), None
+
+
 def status(hcard):
     """status():
     """
