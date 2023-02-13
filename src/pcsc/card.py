@@ -20,6 +20,15 @@ def establish_context(dw_scope: Scope):
         return None, str(e)
 
 
+def is_valid_context(hcontext):
+    """
+    """
+    try:
+        return _scard.is_valid_context(hcontext), None
+    except PcscError as e:
+        return False, str(e)
+
+
 def list_readers(hcontext, readergroups=None):
     """list_readers():
     """
@@ -132,9 +141,9 @@ def release_context(hcontext):
     """release_context():
     """
     try:
-        return _scard.release_context(hcontext), None
+        return _scard.release_context(hcontext)
     except PcscError as e:
-        return None, str(e)
+        return str(e)
 
 
 #
