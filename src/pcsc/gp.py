@@ -27,8 +27,10 @@ def GET_CPLC(hcard, protocol: Protocol, secure_messaging: SecureMessaging = Secu
 
     if error is not None:
         return None, error
-    elif r.SW12() != '9000':
-        return None, F"Response bytes to GET [CPLC] DATA is not 9000 (SW12 = {r.SW12()})"
+
+    elif (sw12 := r.SW12()) != '9000':
+        return None, F"Response bytes to GET [CPLC] DATA is not 9000 (SW12 = {sw12})"
+
     else:
         cplc_data = CPLC(parse_to_dict(r.data()).get('9F7F', {}))
         return cplc_data, None
@@ -41,7 +43,7 @@ def SELECT_CARD_MANAGER_and_GET_CPLC_DATA(hcard,
     if error is not None:
         return None, F"Error selecting the Card Manager ({error})"
 
-    elif sw12 := r.SW12() != '9000':
+    elif (sw12 := r.SW12()) != '9000':
         return None, F"Error selecting the Card Manager (SW12 = {sw12})"
 
     else:

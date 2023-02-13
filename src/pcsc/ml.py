@@ -16,7 +16,7 @@ def GET_MULTOS_DATA(hcard, protocol: Protocol) -> MultosData:
     if error is not None:
         return None, F"Error getting the MULTOS data ({error})"
 
-    elif sw12 := r.SW12() != '9000':
+    elif (sw12 := r.SW12()) != '9000':
         return None, F"Error getting the MULTOS data (SW12 = {sw12})"
 
     else:
