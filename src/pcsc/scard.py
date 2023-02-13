@@ -1,4 +1,4 @@
-"""scard.py
+"""scard.py: thin wrapper around Pyscard's smartcard.scard
 """
 
 # Standard library imports
@@ -6,7 +6,6 @@ import logging
 from enum import IntEnum
 
 # Third party imports
-from asyncore import read
 from smartcard.scard import \
     SCARD_SCOPE_USER as _SCARD_SCOPE_USER,\
     SCARD_SCOPE_SYSTEM as _SCARD_SCOPE_SYSTEM,\
@@ -39,6 +38,7 @@ from smartcard.scard import \
     SCARD_ATTR_VENDOR_IFD_SERIAL_NO as _SCARD_ATTR_VENDOR_IFD_SERIAL_NO,\
     SCARD_ATTR_VENDOR_NAME as _SCARD_ATTR_VENDOR_NAME,\
     SCardEstablishContext as _SCardEstablishContext,\
+    SCardIsValidContext as _SCardIsValidContext,\
     SCardListReaders as _SCardListReaders,\
     SCardConnect as _SCardConnect,\
     SCardReconnect as _SCardReconnect,\
@@ -122,6 +122,18 @@ def establish_context(dw_scope: Scope):
     return hcontext
 
 
+def is_valid_context(hcontext):
+    """
+    """
+    hresult = _SCardIsValidContext(hcontext)
+    if hresult != _SCARD_S_SUCCESS:
+        err = F'PC/SC context is invalid ({_SCardGetErrorMessage(hresult)})'
+        logging.error(err)
+        raise PcscError(err)
+    else:
+        return True
+
+
 def list_readers(hcontext, readergroups=None):
     """list_readers():
     """
@@ -174,7 +186,7 @@ def connect(hcontext, reader, dw_share_mode: ShareMode, dw_preferred_protocols: 
     protocol = Protocol(dw_active_protocol)
 
     logging.info(
-        F"Connected with share mode = {dw_share_mode.name} and active protocol = {protocol.name}")
+        F"Connected in {dw_share_mode.name.upper()} mode with active protocol {protocol.name}")
 
     return hcard, protocol
 
@@ -193,7 +205,7 @@ def reconnect(hcard, dw_share_mode: ShareMode, dw_preferred_protocols: Protocol,
     active_protocol = Protocol(dw_active_protocol)
 
     logging.info(
-        F"Reconnected with share mode = {dw_share_mode.name}, disposition = {dw_initialization.name}, and active protocol = {active_protocol.name}")
+        F"Reconnected in {dw_share_mode.name.upper()} mode with disposition {dw_initialization.name.upper()} and active protocol {active_protocol.name}")
 
     return active_protocol
 
@@ -215,7 +227,7 @@ def status(hcard):
             states.append(scard_state)
 
     logging.info(
-        F"Card in reader {reader}, with ATR = {_to_hstr(atr)} and active protocol = {protocol.name},")
+        F"Card in reader {reader} has ATR = {_to_hstr(atr)} and is connected with active protocol {protocol.name}")
 
     l = len(states)
     match l:
@@ -413,6 +425,8 @@ def get_status_change(hcontext, reader_states=None, timeout=None):
 
 
 def get_attribute(hcard, attribute: Attribute):
+    """get_attribute()
+    """
     hresult, value = _SCardGetAttrib(hcard, attribute.value)
     if hresult != _SCARD_S_SUCCESS:
         err = F'Failed to get attribute {attribute} ({_SCardGetErrorMessage(hresult)})'
@@ -446,8 +460,9 @@ def release_context(hcontext):
         err = F'Failed to release PC/SC context: {_SCardGetErrorMessage(hresult)}'
         logging.error(err)
         raise PcscError(err)
-
-    logging.info("PC/SC context released")
+    else:
+        logging.info("PC/SC context released")
+        return None
 
 #
 # Helper functions
