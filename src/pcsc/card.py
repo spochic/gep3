@@ -24,9 +24,9 @@ def is_valid_context(hcontext):
     """
     """
     try:
-        return _scard.is_valid_context(hcontext), None
+        return _scard.is_valid_context(hcontext)
     except PcscError as e:
-        return False, str(e)
+        return False
 
 
 def list_readers(hcontext, readergroups=None):
