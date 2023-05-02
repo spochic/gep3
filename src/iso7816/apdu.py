@@ -96,32 +96,6 @@ class CommandApdu:
                 raise ValueError(
                     F'Wrong Command APDU length: expected {7 + self.__list[5] * 0x0100 + self.__list[6]} bytes for Case 3e or {7 + self.__list[5] * 0x0100 + self.__list[6] + 2} bytes for Case 4e but received {apdu_length} bytes instead')
 
-    @classmethod
-    def from_dict(cls, apdu: dict):
-        # If 'apdu' includes a header, it will be used directly. If not, the header will be constructed with CLA, INS, P1, and P2
-        if CommandField.Header in apdu:
-            apdu_str = _clean(
-                apdu[CommandField.Header], 'CommandApdu.from_dict()', 'apdu[CommandField.Header]')
-        else:
-            apdu_str = F"{_clean(apdu[CommandField.Class], 'CommandApdu.from_dict()', 'apdu[CommandField.Class]')}{_clean(apdu[CommandField.Instruction], 'CommandApdu.from_dict()', 'apdu[CommandField.Instruction]')}{_clean(apdu[CommandField.P1], 'CommandApdu.from_dict()', 'apdu[CommandField.P1]')}{_clean(apdu[CommandField.P2], 'CommandApdu.from_dict()', 'apdu[CommandField.P2]')}"
-
-        # If 'apdu' includes a body, it will be used directly. If not, the body will be constructed with the optional DATA and Le fields
-        if CommandField.Body in apdu:
-            apdu_str += _clean(apdu[CommandField.Body],
-                               'CommandApdu.from_dict()', 'apdu[CommandField.Body]')
-        else:
-
-            if CommandField.Data in apdu:
-                _DATA = _clean(
-                    apdu[CommandField.Data], 'CommandApdu.from_dict()', 'apdu[CommandField.Data]')
-                apdu_str += F"{''.join([F'{l:02X}' for l in _Lc(_to_intlist(_DATA))])}{_DATA}"
-
-            if CommandField.Le in apdu:
-                apdu_str += _clean(apdu[CommandField.Le],
-                                   "CommandApdu.__init__()", "apdu[CommandField.Le]")
-
-        return cls(apdu_str)
-
     def list(self):
         return deepcopy(self.__list)
 
@@ -129,7 +103,7 @@ class CommandApdu:
         return _to_hstr(self.__list)
 
     def array(self):
-        return array(self.__list)
+        return array('B', self.__list)
 
     def get_field(self, field: CommandField):
         match field:
@@ -388,3 +362,34 @@ def _Lc(data: list[int]):
         return [0x00, Lc >> 8, Lc & 0x00FF]
 
     raise ValueError(F'Data length should be <65,536: actual length = {Lc}')
+
+
+def _dict_to_string(apdu: dict):
+    # If 'apdu' includes a header, it will be used directly. If not, the header will be constructed with CLA, INS, P1, and P2
+    if CommandField.Header in apdu:
+        header = apdu[CommandField.Header]
+    else:
+        header = apdu[CommandField.Class] + apdu[CommandField.Instruction] + \
+            apdu[CommandField.P1] + apdu[CommandField.P2]
+
+    # If 'apdu' includes a body, it will be used directly. If not, the body will be constructed with the optional DATA and Le fields
+    body = ''
+    if CommandField.Body in apdu:
+        body = apdu[CommandField.Body]
+    else:
+        if CommandField.Data in apdu:
+            _DATA = apdu[CommandField.Data]
+            body = F"{''.join([F'{l:02X}' for l in _Lc(_to_intlist(_DATA))])}{_DATA}"
+
+        if CommandField.Le in apdu:
+            body += apdu[CommandField.Le]
+
+    return header + body
+
+
+def _byte_to_string(byte, command_name='()', byte_name='') -> str:
+    if (byte < 0x00) or (byte > 0xFF):
+        raise ValueError(
+            F'{command_name}: {byte_name} out of bound, received {byte:X}')
+    else:
+        return F"{byte:02X}"

@@ -11,7 +11,6 @@ from common.hstr import clean as _clean
 
 
 # Enum Definitions
-
 class SecureMessaging(Enum):
     No = 'No SM or no indication'
     Proprietary = 'Proprietary SM format'
@@ -25,8 +24,6 @@ class Chaining(Enum):
 
 
 # Class Definitions
-
-
 class CLA:
     def __init__(self, secure_messaging: SecureMessaging, chaining: Chaining, logical_channel: int):
         if (logical_channel < 0) or (logical_channel > 19):
@@ -41,7 +38,7 @@ class CLA:
     def from_value(cls, CLA: int):
         if (CLA < 0x00) or (CLA > 0xFF):
             raise ValueError(
-                F'Class byte should out of bound: should be 2 bytes, received {CLA:X}')
+                F'Class byte out of bound: should be 2 bytes, received {CLA:X}')
 
         secure_messaging: SecureMessaging
 
