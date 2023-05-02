@@ -11,7 +11,6 @@ from common.hstr import clean as _clean
 
 
 # Enum Definitions
-
 class SecureMessaging(Enum):
     No = 'No secure messaging'
     GlobalPlatform = 'Secure messaging - GlobalPlatform proprietary'
@@ -39,9 +38,8 @@ class CardPersonalizationLifeCycleData(Enum):
     ICPersonalizationDate = "IC Personalization Date"
     ICPersonalizationEquipmentIdentifier = "IC Personalization Equipment Identifier"
 
+
 # Class Definitions
-
-
 class CLA:
     def __init__(self, secure_messaging: SecureMessaging, logical_channel: int):
         if (logical_channel < 0) or (logical_channel > 19):
