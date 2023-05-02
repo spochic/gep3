@@ -3,6 +3,8 @@
 
 # Standard library imports
 from enum import Enum
+from copy import deepcopy
+from array import array
 
 # Third party imports
 
@@ -121,10 +123,13 @@ class CommandApdu:
         return cls(apdu_str)
 
     def list(self):
-        return self.__list
+        return deepcopy(self.__list)
 
     def str(self):
         return _to_hstr(self.__list)
+
+    def array(self):
+        return array(self.__list)
 
     def get_field(self, field: CommandField):
         match field:
