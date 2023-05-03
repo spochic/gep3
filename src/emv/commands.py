@@ -66,7 +66,7 @@ def GET_PROCESSING_OPTIONS(pdol: str = '') -> GetProcessingOptions:
     return GetProcessingOptions(pdol)
 
 
-def GPO(pdol: str) -> CommandApdu:
+def GPO(pdol: str) -> GetProcessingOptions:
     """GPO(): generate APDU for GET PROCESSING OPTIONS command
     """
     return GET_PROCESSING_OPTIONS(pdol)
@@ -105,7 +105,7 @@ class GetData(CommandApdu):
         super().__init__(_dict_to_string(apdu_dict))
 
 
-def GET_DATA(tag: Union[str, GetDataObject]) -> CommandApdu:
+def GET_DATA(tag: Union[str, GetDataObject]) -> GetData:
     """GET_DATA: generate APDU for GET DATA command
     """
     return GetData(tag)
