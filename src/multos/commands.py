@@ -17,9 +17,12 @@ from iso7816 import CommandApdu, CommandField, CLA as ISO_CLA, Chaining
 
 
 # Command APDUs defined by MULTOS
+class GetMultosData(CommandApdu):
+    def __init__(self):
+        super().__init__("800000007F")
 
 
-def GET_MULTOS_DATA() -> CommandApdu:
+def GET_MULTOS_DATA() -> GetMultosData:
     """GET_MULTOS_DATA: generate APDU for GET MULTOS DATA command
     """
-    return CommandApdu('800000007F')
+    return GetMultosData()

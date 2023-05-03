@@ -11,8 +11,6 @@ from common.hstr import clean as _clean
 
 
 # Enum Definitions
-
-
 class MultosDataField(Enum):
     MultosVersionNumber = "MULTOS Version Number"
     ICManufacturerIdentifier = "IC Manufacturer ID"
@@ -38,8 +36,6 @@ class MultosDataField(Enum):
 
 
 # Class Definitions
-
-
 class MultosData:
     def __init__(self, data: str):
         multos_data = _clean(
