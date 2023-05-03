@@ -11,11 +11,10 @@ from typing import Union
 from common.ber import encode
 from common.hstr import clean as _clean
 from iso7816.apdu import CommandApdu, CommandField
+from iso7816.commands import _dict_to_string
 
 
 # Enum Definitions
-
-
 class ApplicationIdentifier(Enum):
     Mastercard = 'A0000000041010'
     Visa = 'A0000000031010'
@@ -34,29 +33,37 @@ class GetDataObject(Enum):
 
 
 # Command APDUs defined by EMV
+class Select(CommandApdu):
+    def __init__(self, aid: Union[str, ApplicationIdentifier]):
+        apdu_dict = {CommandField.Header: '00A40400', CommandField.Le: '00'}
+
+        if aid in ApplicationIdentifier:
+            apdu_dict[CommandField.Data] = aid.value
+        else:
+            apdu_dict[CommandField.Data] = _clean(aid, "emv.SELECT()", 'aid')
+
+        super().__init__(_dict_to_string(apdu_dict))
 
 
-def SELECT(aid: Union[str, ApplicationIdentifier]) -> CommandApdu:
+def SELECT(aid: Union[str, ApplicationIdentifier]) -> Select:
     """SELECT(): generate CommandApdu for SELECT command
     """
-    apdu = {CommandField.Header: '00A40400', CommandField.Le: '00'}
-
-    if aid in ApplicationIdentifier:
-        apdu[CommandField.Data] = aid.value
-    else:
-        apdu[CommandField.Data] = _clean(aid, "emv.SELECT()", 'aid')
-
-    return CommandApdu.from_dict(apdu)
+    return Select(aid)
 
 
-def GET_PROCESSING_OPTIONS(pdol: str = '') -> CommandApdu:
+class GetProcessingOptions(CommandApdu):
+    def __init__(self, pdol: str = ''):
+        apdu_dict = {CommandField.Header: '80A80000',
+                     CommandField.Data: encode('83', pdol),
+                     CommandField.Le: '00'}
+
+        super().__init__(_dict_to_string(apdu_dict))
+
+
+def GET_PROCESSING_OPTIONS(pdol: str = '') -> GetProcessingOptions:
     """GET_PROCESSING_OPTIONS(): generate APDU for GET PROCESSING OPTIONS command
     """
-    apdu = {CommandField.Header: '80A80000',
-            CommandField.Data: encode('83', pdol),
-            CommandField.Le: '00'}
-
-    return CommandApdu.from_dict(apdu)
+    return GetProcessingOptions(pdol)
 
 
 def GPO(pdol: str) -> CommandApdu:
@@ -65,30 +72,40 @@ def GPO(pdol: str) -> CommandApdu:
     return GET_PROCESSING_OPTIONS(pdol)
 
 
-def READ_RECORD(SFI: int, record: int) -> CommandApdu:
+class ReadRecord(CommandApdu):
+    def __init__(self, SFI: int, record: int):
+        apdu_dict = {CommandField.Class: '00',
+                     CommandField.Instruction: 'B2',
+                     CommandField.P1: F"{record:02X}",
+                     CommandField.P2: F"{SFI*8+4:02X}",
+                     CommandField.Le: '00'}
+
+        super().__init__(_dict_to_string(apdu_dict))
+
+
+def READ_RECORD(SFI: int, record: int) -> ReadRecord:
     """READ_RECORD(): generate APDU for READ RECORD command
     """
-    apdu = {CommandField.Class: '00',
-            CommandField.Instruction: 'B2',
-            CommandField.P1: F"{record:02X}",
-            CommandField.P2: F"{SFI*8+4:02X}",
-            CommandField.Le: '00'}
+    return ReadRecord(SFI, record)
 
-    return CommandApdu.from_dict(apdu)
+
+class GetData(CommandApdu):
+    def __init__(self, tag: Union[str, GetDataObject]):
+        apdu_dict = {CommandField.Class: '80',
+                     CommandField.Instruction: 'CA',
+                     CommandField.Le: '00'}
+
+        if tag in GetDataObject:
+            apdu_dict[CommandField.P1] = tag.value[0:2]
+            apdu_dict[CommandField.P2] = tag.value[2:4]
+        else:
+            apdu_dict[CommandField.P1] = _clean(tag[0:2])
+            apdu_dict[CommandField.P2] = _clean(tag[2:4])
+
+        super().__init__(_dict_to_string(apdu_dict))
 
 
 def GET_DATA(tag: Union[str, GetDataObject]) -> CommandApdu:
     """GET_DATA: generate APDU for GET DATA command
     """
-    apdu = {CommandField.Class: '80',
-            CommandField.Instruction: 'CA',
-            CommandField.Le: '00'}
-
-    if tag in GetDataObject:
-        apdu[CommandField.P1] = tag.value[0:2]
-        apdu[CommandField.P2] = tag.value[2:4]
-    else:
-        apdu[CommandField.P1] = _clean(tag[0:2])
-        apdu[CommandField.P2] = _clean(tag[2:4])
-
-    return CommandApdu.from_dict(apdu)
+    return GetData(tag)
