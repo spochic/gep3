@@ -26,3 +26,8 @@ def GET_MULTOS_DATA() -> GetMultosData:
     """GET_MULTOS_DATA: generate APDU for GET MULTOS DATA command
     """
     return GetMultosData()
+
+
+class GetManufacturerData(CommandApdu):
+    def __init__(self):
+        super().__init__("8002000016")
