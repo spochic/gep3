@@ -1,4 +1,4 @@
-"""gp.py
+"""gp_exchange.py
 """
 
 # Standard library imports
@@ -14,7 +14,7 @@ from iso7816 import ResponseApdu
 from globalplatform import FileOccurrence, ApplicationIdentifier, Select, GetData, SecureMessaging, GetDataObject, CPLC
 
 
-def select(ifd: InterfaceDevice,
+def SELECT(ifd: InterfaceDevice,
            protocol: Protocol,
            logical_channel: int = 0,
            file_occurrence: FileOccurrence = FileOccurrence.FirstOrOnlyOccurrence,
@@ -23,7 +23,7 @@ def select(ifd: InterfaceDevice,
     return send_apdu(ifd, protocol, Select(logical_channel, file_occurrence, application_identifier), timeout)
 
 
-def get_data(ifd: InterfaceDevice,
+def GET_DATA(ifd: InterfaceDevice,
              protocol: Protocol,
              tag: Union[str, GetDataObject],
              secure_messaging: SecureMessaging = SecureMessaging.No,
@@ -32,7 +32,7 @@ def get_data(ifd: InterfaceDevice,
     return send_apdu(ifd, protocol, GetData(secure_messaging, logical_channel, tag), timeout)
 
 
-def get_cplc(ifd: InterfaceDevice,
+def GET_CPLC(ifd: InterfaceDevice,
              protocol: Protocol,
              secure_messaging: SecureMessaging = SecureMessaging.No,
              logical_channel: int = 0,
