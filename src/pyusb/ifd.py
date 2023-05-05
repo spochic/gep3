@@ -8,11 +8,8 @@ import usb.core
 import usb.util
 
 # Local application imports
-from .bulk_message import BulkOutMessage, BulkInMessage, Protocol
-from .bulk_in_messages import RDR_to_PC
-from .bulk_out_messages import PC_to_RDR_XfrBlock
-from iso7816 import CommandApdu, ResponseApdu, CommandCase, GetResponse
-from .descriptors import SmartCardDeviceClassDescriptor
+from ccid import BulkOutMessage, BulkInMessage, RDR_to_PC, PC_to_RDR_XfrBlock
+from iso7816 import CommandApdu, ResponseApdu
 
 
 # Class definitions
@@ -21,7 +18,8 @@ class InterfaceDevice:
         self.device: usb.core.Device = device
         self._cfg_index = cfg_index
         self._interface_index = interface_index
-        self._bSeq: int = 0
+        self.bSeq: int = 0
+        self.bSlot: int = 0
 
         for endpoint in interface:
             endpoint_type = usb.util.endpoint_type(endpoint.bmAttributes)
@@ -87,7 +85,7 @@ class InterfaceDevice:
 
         return RDR_to_PC(response[:response_length])
 
-    def send_bulk_message(self, message: BulkOutMessage, timeout=None) -> tuple[int, BulkInMessage]:
+    def send_bulk_message(self, message: BulkOutMessage, timeout=None) -> BulkInMessage:
         logging.info(F"{self.identifier} --> {message}")
         n = self.write_bulk_message(message, timeout)
         if n != len(message.array()):
@@ -103,19 +101,9 @@ class InterfaceDevice:
             # Getting the sequence number of the incoming message
             bSeq_in = message_in.bSeq()
 
-        self._bSeq = bSeq_in + 1
+        self.bSeq = bSeq_in + 1
 
-        return self._bSeq, message_in
-
-    def transmit_apdu(self, command_apdu: CommandApdu, bSlot=0, timeout=None) -> ResponseApdu:
-        message_out = PC_to_RDR_XfrBlock(bSlot,
-                                         self._bSeq,
-                                         0,
-                                         [0x00, 0x00],
-                                         command_apdu.list())
-        _, message_in = self.send_bulk_message(message_out, timeout)
-
-        return ResponseApdu(message_in.data())
+        return message_in
 
     def __str__(self):
         return F"{self.name} (serial number = {self.serial_number}, configuration number = {self._cfg_index}, interface number = {self._interface_index})"
@@ -123,62 +111,16 @@ class InterfaceDevice:
 
 # Function defitions
 def list_interface_devices() -> list[InterfaceDevice]:
-    devices = usb.core.find(find_all=True, custom_match=_find_usb_class(0x0b))
-    readers: list[InterfaceDevice] = []
+    ccid_devices = usb.core.find(
+        find_all=True, custom_match=_find_usb_class(0x0b))
+    ifd_list: list[InterfaceDevice] = []
 
-    for device in devices:
-        for c, cfg in enumerate(device):
+    for ccid_device in ccid_devices:
+        for c, cfg in enumerate(ccid_device):
             for i, intf in enumerate(cfg):
-                readers.append(InterfaceDevice(device, intf, c, i))
-                smartcard_device_class_descriptor = SmartCardDeviceClassDescriptor(
-                    usb.control.get_descriptor(device, 0x36, 0x21, i))
-                print(smartcard_device_class_descriptor)
-                print(smartcard_device_class_descriptor.features())
+                ifd_list.append(InterfaceDevice(ccid_device, intf, c, i))
 
-    return readers
-
-
-def send_apdu(reader: InterfaceDevice, command_apdu: CommandApdu, protocol: Protocol, bSlot=0, timeout=None) -> ResponseApdu:
-    match protocol:
-        case Protocol.T0:
-            match command_apdu.case:
-                case CommandCase.Case1:
-                    return reader.transmit_apdu(command_apdu, bSlot, timeout)
-
-                case CommandCase.Case2s:
-                    response_apdu = reader.transmit_apdu(
-                        command_apdu, bSlot, timeout)
-                    if response_apdu.SW1() == '6C':
-                        # Case 2S.3 — Process aborted; Ne not accepted, Na indicated
-                        return reader.transmit_apdu(command_apdu.updated_Le(response_apdu.SW2()), bSlot, timeout)
-                    else:
-                        return response_apdu
-
-                case CommandCase.Case3s:
-                    return reader.transmit_apdu(command_apdu, bSlot, timeout)
-
-                case CommandCase.Case4s:
-                    response_apdu = reader.transmit_apdu(
-                        command_apdu, bSlot, timeout)
-                    if response_apdu.SW12() == '9000':
-                        # Case 4S.2 — Process completed
-                        return reader.transmit_apdu(GetResponse(command_apdu.CLA(), int(command_apdu.Le(), 16)), bSlot, timeout)
-                    elif response_apdu.SW1() == '61':
-                        # Case 4S.3 — Process completed with information added
-                        return reader.transmit_apdu(GetResponse(command_apdu.CLA(), min(int(response_apdu.SW2(), 16), int(command_apdu.Le(), 16))), bSlot, timeout)
-                    else:
-                        return response_apdu
-
-                case _:
-                    raise ValueError(
-                        F"{command_apdu.case.value} not yet implemented for protocol T=0")
-
-        case Protocol.T1:
-            return reader.transmit_apdu(command_apdu, bSlot, timeout)
-
-        case _:
-            raise ValueError(
-                F"Unsupported protocol: {protocol.name}")
+    return ifd_list
 
 
 #
