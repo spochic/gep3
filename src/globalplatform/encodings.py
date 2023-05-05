@@ -132,11 +132,18 @@ class CPLC:
         else:
             self.__cplc_data = cplc_data
 
-    def get_field(self, data: CardPersonalizationLifeCycleData):
+    def field(self, data: CardPersonalizationLifeCycleData):
         pos, length = _CPLC_DATA_DEFINITION[data]
         return self.__cplc_data[2*pos:2*(pos+length)]
 
-    def str(self):
+    def dict(self):
+        cplc_dict = {}
+        for field in CardPersonalizationLifeCycleData:
+            cplc_dict[field] = self.field(field)
+
+        return cplc_dict
+
+    def __str__(self):
         return self.__cplc_data
 
 
