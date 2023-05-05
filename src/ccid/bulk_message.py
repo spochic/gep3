@@ -76,6 +76,15 @@ class Protocol(IntEnum):
     ThreeWire = 0x81
     I2C = 0x82
 
+    def __str__(self):
+        match self:
+            case Protocol.T0:
+                return "T=0"
+            case Protocol.T1:
+                return "T=1"
+            case _:
+                return self.name
+
 
 class BulkMessage:
     def __init__(self, message: Union[list[int], array]):
@@ -148,6 +157,6 @@ class BulkInMessage(BulkMessage):
 
     def __str__(self):
         if self.command_status() == CommandStatus.Failed:
-            return F"{super().__str__()}, {self.command_status().name}, {self.error().name}, {self.icc_status().name}"
+            return F"{super().__str__()}, {self.command_status().name}, {self.error()}, {self.icc_status().name}"
         else:
             return F"{super().__str__()}, {self.command_status().name}, {self.icc_status().name}"

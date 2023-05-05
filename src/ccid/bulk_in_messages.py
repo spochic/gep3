@@ -73,7 +73,7 @@ class RDR_to_PC_Parameters(BulkInMessage):
         return self._message[9]
 
     def __str__(self):
-        return F"{super().__str__()}, {self.protocol().name}"
+        return F"{super().__str__()}, protocol {self.protocol()}"
 
 
 # Functions
