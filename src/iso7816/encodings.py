@@ -87,6 +87,7 @@ class CLA:
         cla = _clean(CLA, 'from_string()', 'CLA')
         return cls.from_value(int(cla, base=16))
 
+    @property
     def value(self) -> int:
         CLA = 0x00
 
@@ -114,5 +115,6 @@ class CLA:
 
         return CLA
 
-    def str(self) -> str:
-        return F"{self.value():02X}"
+    @property
+    def string(self) -> str:
+        return F"{self.value:02X}"
