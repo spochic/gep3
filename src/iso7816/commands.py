@@ -8,7 +8,7 @@ from enum import IntEnum
 
 # Local application imports
 from common.hstr import clean as _clean
-from iso7816.apdu import CommandField, CommandApdu, _dict_to_string, _byte_to_string
+from iso7816.apdu import CommandApdu
 from iso7816.encodings import SecureMessaging, Chaining, CLA
 
 
@@ -42,9 +42,7 @@ class FileControlInformation(IntEnum):
 #
 class GetResponse(CommandApdu):
     def __init__(self, CLA: CLA, Le: int):
-        apdu_str = _dict_to_string({CommandField.Class: CLA.str(), CommandField.Instruction: 'C0',
-                                    CommandField.P1: '00', CommandField.P2: '00', CommandField.Le: _byte_to_string(Le)})
-        super().__init__(apdu_str)
+        super().__init__(CLA.value, 0xC0, 0x00, 0x00, Le=Le)
 
 
 def GET_RESPONSE(CLA: CLA, Le: int) -> GetResponse:
@@ -52,21 +50,29 @@ def GET_RESPONSE(CLA: CLA, Le: int) -> GetResponse:
 
 
 class Select(CommandApdu):
-    def __init__(self, secure_messaging: SecureMessaging, chaining: Chaining, logical_channel: int, selection: Selection, file_occurrence: FileOccurrence, fci: FileControlInformation, data: str = None, Le: str = None):
-        apdu_dict = {CommandField.Class: CLA(secure_messaging, chaining, logical_channel).str(),
-                     CommandField.Instruction: 'A4'}
+    def __init__(self,
+                 secure_messaging: SecureMessaging,
+                 chaining: Chaining,
+                 logical_channel: int,
+                 selection: Selection,
+                 file_occurrence: FileOccurrence,
+                 fci: FileControlInformation,
+                 data: list[int] = None,
+                 Le: int = None):
+        cla: int = CLA(secure_messaging, chaining, logical_channel).value
+        INS: int = 0xA4
+        P1: int = selection.value
+        P2: int = file_occurrence.value + fci.value
 
-        apdu_dict[CommandField.P1] = F"{selection:02x}"
-        apdu_dict[CommandField.P2] = F"{file_occurrence + fci:02X}"
-
-        if data is not None:
-            apdu_dict[CommandField.Data] = _clean(data, 'SELECT()', 'data')
-
-        if Le is not None:
-            apdu_dict[CommandField.Le] = _clean(Le, 'SELECT()', 'Le')
-
-        super.__init__(_dict_to_string(apdu_dict))
+        super().__init__(cla, INS, P1, P2, data=data, Le=Le)
 
 
-def SELECT(secure_messaging: SecureMessaging, chaining: Chaining, logical_channel: int, selection: Selection, file_occurrence: FileOccurrence, fci: FileControlInformation, data: str = None, Le: str = None) -> CommandApdu:
+def SELECT(secure_messaging: SecureMessaging,
+           chaining: Chaining,
+           logical_channel: int,
+           selection: Selection,
+           file_occurrence: FileOccurrence,
+           fci: FileControlInformation,
+           data: list[int] = None,
+           Le: int = None) -> Select:
     return Select(secure_messaging, chaining, logical_channel, selection, file_occurrence, fci, data, Le)
