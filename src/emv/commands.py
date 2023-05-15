@@ -9,9 +9,8 @@ from typing import Union
 
 # Local application imports
 from common.ber import encode
-from common.hstr import clean as _clean
+from common.hstr import clean as _clean, to_intlist as _to_intlist
 from iso7816.apdu import CommandApdu, CommandField
-from iso7816.commands import _dict_to_string
 
 
 # Enum Definitions
@@ -35,14 +34,15 @@ class GetDataObject(Enum):
 # Command APDUs defined by EMV
 class Select(CommandApdu):
     def __init__(self, aid: Union[str, ApplicationIdentifier]):
-        apdu_dict = {CommandField.Header: '00A40400', CommandField.Le: '00'}
-
-        if aid in ApplicationIdentifier:
-            apdu_dict[CommandField.Data] = aid.value
+        if isinstance(aid, ApplicationIdentifier):
+            data = _to_intlist(aid.value)
+        elif isinstance(aid, str):
+            data = _to_intlist(aid, "emv.SELECT()", 'aid')
         else:
-            apdu_dict[CommandField.Data] = _clean(aid, "emv.SELECT()", 'aid')
+            raise TypeError(
+                F"emv.Select(): aid should be of type str or ApplicationIdentifier, received: {type(aid)}")
 
-        super().__init__(_dict_to_string(apdu_dict))
+        super().__init__(0x00, 0xA4, 0x04, 0x00, data=data, Le=0x100)
 
 
 def SELECT(aid: Union[str, ApplicationIdentifier]) -> Select:
@@ -53,11 +53,8 @@ def SELECT(aid: Union[str, ApplicationIdentifier]) -> Select:
 
 class GetProcessingOptions(CommandApdu):
     def __init__(self, pdol: str = ''):
-        apdu_dict = {CommandField.Header: '80A80000',
-                     CommandField.Data: encode('83', pdol),
-                     CommandField.Le: '00'}
-
-        super().__init__(_dict_to_string(apdu_dict))
+        super().__init__(0x80, 0xA8, 0x00, 0x00,
+                         data=_to_intlist(encode('83', pdol)), Le=0x100)
 
 
 def GET_PROCESSING_OPTIONS(pdol: str = '') -> GetProcessingOptions:
@@ -74,13 +71,7 @@ def GPO(pdol: str) -> GetProcessingOptions:
 
 class ReadRecord(CommandApdu):
     def __init__(self, SFI: int, record: int):
-        apdu_dict = {CommandField.Class: '00',
-                     CommandField.Instruction: 'B2',
-                     CommandField.P1: F"{record:02X}",
-                     CommandField.P2: F"{SFI*8+4:02X}",
-                     CommandField.Le: '00'}
-
-        super().__init__(_dict_to_string(apdu_dict))
+        super().__init__(0x00, 0xB2, record, SFI*8+4, Le=0x100)
 
 
 def READ_RECORD(SFI: int, record: int) -> ReadRecord:
@@ -91,18 +82,19 @@ def READ_RECORD(SFI: int, record: int) -> ReadRecord:
 
 class GetData(CommandApdu):
     def __init__(self, tag: Union[str, GetDataObject]):
-        apdu_dict = {CommandField.Class: '80',
-                     CommandField.Instruction: 'CA',
-                     CommandField.Le: '00'}
+        if isinstance(tag, GetDataObject):
+            P1 = int(tag.value[0:2], 16)
+            P2 = int(tag.value[2:4], 16)
 
-        if tag in GetDataObject:
-            apdu_dict[CommandField.P1] = tag.value[0:2]
-            apdu_dict[CommandField.P2] = tag.value[2:4]
+        elif isinstance(tag, str):
+            P1 = int(tag[0:2], 16)
+            P2 = int(tag[2:4], 16)
+
         else:
-            apdu_dict[CommandField.P1] = _clean(tag[0:2])
-            apdu_dict[CommandField.P2] = _clean(tag[2:4])
+            raise TypeError(
+                F"emv.GetData(): tag should be of type str or GetDataObject, received: {type(tag)}")
 
-        super().__init__(_dict_to_string(apdu_dict))
+        super().__init__(0x80, 0xCA, P1, P2, Le=0x100)
 
 
 def GET_DATA(tag: Union[str, GetDataObject]) -> GetData:
