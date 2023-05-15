@@ -30,9 +30,9 @@ class CLA:
             raise ValueError(
                 F'Logical channel number out of bound: should be in [0;19], received {logical_channel}')
 
-        self.__logical_channel = logical_channel
-        self.__chaining = chaining
-        self.__secure_messaging = secure_messaging
+        self.__logical_channel: int = logical_channel
+        self.__chaining: Chaining = chaining
+        self.__secure_messaging: SecureMessaging = secure_messaging
 
     @classmethod
     def from_value(cls, CLA: int):
@@ -84,7 +84,8 @@ class CLA:
 
     @classmethod
     def from_string(cls, CLA: str):
-        return cls.from_value(cls, int(_clean(CLA), 16))
+        cla = _clean(CLA, 'from_string()', 'CLA')
+        return cls.from_value(int(cla, base=16))
 
     def value(self) -> int:
         CLA = 0x00

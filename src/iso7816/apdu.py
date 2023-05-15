@@ -12,9 +12,8 @@ from array import array
 from common.hstr import clean as _clean, to_intlist as _to_intlist
 from common.intlist import to_hstr as _to_hstr
 
+
 # Enum Definitions
-
-
 class CommandCase(Enum):
     Case1 = 'Case 1'
     Case2s = 'Case 2s'
@@ -52,9 +51,8 @@ class ResponseProcessingState(Enum):
     ExecutionError = 'Execution error'
     CheckingError = 'Checking error'
 
+
 # Command and Response APDU classes
-
-
 class CommandApdu:
     def __init__(self, apdu_str: str):
         self.__list = _to_intlist(
@@ -96,131 +94,125 @@ class CommandApdu:
                 raise ValueError(
                     F'Wrong Command APDU length: expected {7 + self.__list[5] * 0x0100 + self.__list[6]} bytes for Case 3e or {7 + self.__list[5] * 0x0100 + self.__list[6] + 2} bytes for Case 4e but received {apdu_length} bytes instead')
 
+    @property
     def list(self):
         return deepcopy(self.__list)
 
-    def str(self):
+    @property
+    def string(self):
         return _to_hstr(self.__list)
 
+    @property
     def array(self):
         return array('B', self.__list)
 
-    def get_field(self, field: CommandField):
-        match field:
-            case CommandField.Header:
-                return _to_hstr(self.__list[0:4])
+    @property
+    def header(self):
+        return _to_hstr(self.__list[0:4])
 
-            case CommandField.Body:
-                return _to_hstr(self.__list[4:])
+    @property
+    def body(self):
+        return _to_hstr(self.__list[4:])
 
-            case CommandField.Class:
-                return F"{self.__list[0]:02X}"
-
-            case CommandField.Instruction:
-                return F"{self.__list[1]:02X}"
-
-            case CommandField.P1:
-                return F"{self.__list[2]:02X}"
-
-            case CommandField.P2:
-                return F"{self.__list[3]:02X}"
-
-            case CommandField.Lc:
-                match self.case:
-                    case CommandCase.Case1 | CommandCase.Case2s | CommandCase.Case2e:
-                        raise ValueError(
-                            F'Wrong Command APDU field: {self.case} has no Lc field')
-                    case CommandCase.Case3s | CommandCase.Case4s:
-                        return F"{self.__list[4]:02X}"
-                    case CommandCase.Case3e | CommandCase.Case4e:
-                        return _to_hstr(self.__list[4:7])
-
-            case CommandField.Data:
-                match self.case:
-                    case CommandCase.Case1 | CommandCase.Case2s | CommandCase.Case2e:
-                        raise ValueError(
-                            F'Wrong Command APDU field: {self.case} has no Data field')
-                    case CommandCase.Case3s:
-                        return _to_hstr(self.__list[5:])
-                    case CommandCase.Case4s:
-                        return _to_hstr(self.__list[5:-1])
-                    case CommandCase.Case3e:
-                        return _to_hstr(self.__list[7:])
-                    case CommandCase.Case4e:
-                        return _to_hstr(self.__list[7:-2])
-
-            case CommandField.Le:
-                match self.case:
-                    case CommandCase.Case1 | CommandCase.Case3s | CommandCase.Case3e:
-                        raise ValueError(
-                            F'Wrong Command APDU field: {self.case} has no Le field')
-                    case CommandCase.Case2s | CommandCase.Case4s:
-                        return F"{self.__list[-1]:02X}"
-                    case CommandCase.Case2e | CommandCase.Case4e:
-                        return _to_hstr(self.__list[-2:])
-
+    @property
     def CLA(self):
-        return self.get_field(CommandField.Class)
+        return F"{self.__list[0]:02X}"
 
+    @property
     def INS(self):
-        return self.get_field(CommandField.Instruction)
+        return F"{self.__list[1]:02X}"
 
+    @property
     def P1(self):
-        return self.get_field(CommandField.P1)
+        return F"{self.__list[2]:02X}"
 
+    @property
     def P2(self):
-        return self.get_field(CommandField.P2)
+        return F"{self.__list[3]:02X}"
 
+    @property
+    def Lc(self):
+        match self.case:
+            case CommandCase.Case1 | CommandCase.Case2s | CommandCase.Case2e:
+                raise ValueError(
+                    F'Command APDU has no Lc field ({self.case.name})')
+            case CommandCase.Case3s | CommandCase.Case4s:
+                return F"{self.__list[4]:02X}"
+            case CommandCase.Case3e | CommandCase.Case4e:
+                return _to_hstr(self.__list[4:7])
+
+    @property
+    def data(self):
+        match self.case:
+            case CommandCase.Case1 | CommandCase.Case2s | CommandCase.Case2e:
+                raise ValueError(
+                    F'Command APDU has no Data field ({self.case.name})')
+            case CommandCase.Case3s:
+                return _to_hstr(self.__list[5:])
+            case CommandCase.Case4s:
+                return _to_hstr(self.__list[5:-1])
+            case CommandCase.Case3e:
+                return _to_hstr(self.__list[7:])
+            case CommandCase.Case4e:
+                return _to_hstr(self.__list[7:-2])
+
+    @property
     def Le(self):
-        return self.get_field(CommandField.Le)
+        match self.case:
+            case CommandCase.Case1 | CommandCase.Case3s | CommandCase.Case3e:
+                raise ValueError(
+                    F'Command APDU has no Le field ({self.case.name})')
+            case CommandCase.Case2s | CommandCase.Case4s:
+                return F"{self.__list[-1]:02X}"
+            case CommandCase.Case2e | CommandCase.Case4e:
+                return _to_hstr(self.__list[-2:])
 
     def __str__(self):
-        str = F"{self.__class__.__name__} ({self.case.value}): CLA={self.CLA()}, INS={self.INS()}, P1={self.P1()}, P2={self.P2()}"
+        str = F"{self.__class__.__name__} ({self.case.value}): CLA={self.CLA}, INS={self.INS}, P1={self.P1}, P2={self.P2}"
 
         match self.case:
             case CommandCase.Case1:
                 return str
             case CommandCase.Case2s | CommandCase.Case2e:
-                return str + F", Le={self.Le()}"
+                return str + F", Le={self.Le}"
             case CommandCase.Case3s | CommandCase.Case3e:
-                return str + F", Lc={self.Lc()}, DATA={self.DATA()}"
+                return str + F", Lc={self.Lc}, DATA={self.data}"
             case CommandCase.Case4s | CommandCase.Case4e:
-                return str + F", Lc={self.Lc()}, DATA={self.DATA()}, Le={self.Le()}"
+                return str + F", Lc={self.Lc}, DATA={self.data}, Le={self.Le}"
 
     def update_Le(self, Le: str):
         match self.case:
             case CommandCase.Case1 | CommandCase.Case3s | CommandCase.Case3e:
                 raise ValueError(
-                    F'Wrong Command APDU field: {self.case} has no Le field')
+                    F'Command APDU has no Le field ({self.case.name})')
 
             case CommandCase.Case2s | CommandCase.Case2e:
-                return CommandApdu.from_dict({CommandField.Header: self.get_field(CommandField.Header),
-                                              CommandField.Le: Le})
+                return CommandApdu(_dict_to_string({CommandField.Header: self.header, CommandField.Le: Le}))
 
             case CommandCase.Case4s | CommandCase.Case4e:
-                return CommandApdu.from_dict({CommandField.Header: self.get_field(CommandField.Header),
-                                              CommandField.Data: self.get_field(CommandField.Data),
-                                              CommandField.Le: Le})
+                return CommandApdu(_dict_to_string({CommandField.Header: self.header,
+                                                    CommandField.Data: self.data,
+                                                    CommandField.Le: Le}))
 
     def updated_Le(self, Le: str):
         match self.case:
             case CommandCase.Case1 | CommandCase.Case3s | CommandCase.Case3e:
                 raise ValueError(
-                    F'Wrong Command APDU field: {self.case} has no Le field')
+                    F'Command APDU has no Le field ({self.case.name})')
 
             case CommandCase.Case2s | CommandCase.Case4s:
                 if len(Le) != 2:
                     raise ValueError(
                         F"Wrong Le, expected 1 byte, received: {Le}")
                 else:
-                    return CommandApdu(self.str()[:-2] + Le)
+                    return CommandApdu(self.string[:-2] + Le)
 
             case  CommandCase.Case2e | CommandCase.Case4e:
                 if len(Le) != 4:
                     raise ValueError(
                         F"Wrong Le, expected 2 bytes, received: {Le}")
                 else:
-                    return CommandApdu(self.str()[:-4] + Le)
+                    return CommandApdu(self.string[:-4] + Le)
 
 
 class StatusBytes:
@@ -307,9 +299,11 @@ class StatusBytes:
                 self.__state = ResponseProcessingState.CheckingError
                 self.__meaning = 'No precise diagnosis'
 
+    @property
     def state(self):
         return self.__state
 
+    @property
     def meaning(self):
         return self.__meaning
 
@@ -323,13 +317,15 @@ class ResponseApdu:
     def from_list(cls, response: list[int]):
         return cls(_to_hstr(response))
 
+    @property
     def list(self):
         return self.__list
 
-    def str(self):
+    @property
+    def string(self):
         return _to_hstr(self.__list)
 
-    def get_field(self, field: ResponseField):
+    def get_field(self, field: ResponseField) -> str:
         match field:
             case ResponseField.Trailer | ResponseField.SW12:
                 return _to_hstr(self.__list[-2:])
@@ -347,29 +343,33 @@ class ResponseApdu:
                     raise ValueError(
                         'Wrong Response APDU field: no response body')
 
-    def data(self):
+    @property
+    def data(self) -> str:
         return self.get_field(ResponseField.Data)
 
-    def SW12(self):
+    @property
+    def SW12(self) -> str:
         return self.get_field(ResponseField.SW12)
 
-    def SW1(self):
+    @property
+    def SW1(self) -> str:
         return self.get_field(ResponseField.SW1)
 
-    def SW2(self):
+    @property
+    def SW2(self) -> str:
         return self.get_field(ResponseField.SW2)
 
-    def StatusBytes(self):
+    @property
+    def StatusBytes(self) -> StatusBytes:
         return StatusBytes(self.get_field(ResponseField.SW12))
 
     def __str__(self):
         return _to_hstr(self.__list)
 
+
 #
 # Helper functions
 #
-
-
 def _Lc(data: list[int]):
     Lc = len(data)
     if Lc < 256:
