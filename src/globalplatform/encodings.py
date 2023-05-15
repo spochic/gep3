@@ -92,8 +92,9 @@ class CLA:
 
     @classmethod
     def from_string(cls, CLA: str):
-        return cls.from_value(cls, int(_clean(CLA), 16))
+        return cls.from_value(int(_clean(CLA), 16))
 
+    @property
     def value(self) -> int:
         CLA = 0x00
 
@@ -118,8 +119,9 @@ class CLA:
 
         return CLA
 
-    def str(self) -> str:
-        return F"{self.value():02X}"
+    @property
+    def string(self) -> str:
+        return F"{self.value:02X}"
 
 
 class CPLC:
