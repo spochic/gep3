@@ -10,18 +10,18 @@ from array import array
 
 # Local application imports
 from common.hstr import clean as _clean, to_intlist as _to_intlist
-from common.intlist import to_hstr as _to_hstr
+from common.intlist import to_hstr as _to_hstr, is_int_list as _is_int_list
 
 
 # Enum Definitions
 class CommandCase(Enum):
     Case1 = 'Case 1'
-    Case2s = 'Case 2s'
-    Case2e = 'Case 2e'
-    Case3s = 'Case 3s'
-    Case3e = 'Case 3e'
-    Case4s = 'Case 4s'
-    Case4e = 'Case 4e'
+    Case2S = 'Case 2S'
+    Case2E = 'Case 2E'
+    Case3S = 'Case 3S'
+    Case3E = 'Case 3E'
+    Case4S = 'Case 4S'
+    Case4E = 'Case 4E'
 
 
 class CommandField(Enum):
@@ -54,165 +54,277 @@ class ResponseProcessingState(Enum):
 
 # Command and Response APDU classes
 class CommandApdu:
-    def __init__(self, apdu_str: str):
-        self.__list = _to_intlist(
+    def __init__(self, CLA: int, INS: int, P1: int, P2: int, data: list[int] = None, Le: int = None):
+        if CLA < 0 or CLA > 255:
+            raise ValueError(
+                F"CommandApdu(): CLA should be [0-255], received: {CLA}")
+        elif INS < 0 or INS > 255:
+            raise ValueError(
+                F"CommandApdu(): INS should be [0-255], received: {INS}")
+        elif P1 < 0 or P1 > 255:
+            raise ValueError(
+                F"CommandApdu(): P1 should be [0-255], received: {P1}")
+        elif P2 < 0 or P2 > 255:
+            raise ValueError(
+                F"CommandApdu(): P2 should be [0-255], received: {P2}")
+        elif not _is_int_list(data):
+            raise ValueError(
+                F"CommandApdu(): data should be list of [0-255], received: {data}")
+
+        self.__content = array('B', [CLA, INS, P1, P2])
+
+        match data, Le:
+            case None, None:
+                # Case 1
+                self.__case = CommandCase.Case1
+
+            case None, _:
+                # Case 2
+                if Le <= 0:
+                    raise ValueError(
+                        F"CommandApdu(): Le should be [0-65,536], received: {Le}")
+                elif Le < 256:
+                    # Case 2S
+                    self.__case = CommandCase.Case2S
+                    self.__content.append(Le)
+                elif Le == 256:
+                    # Case 2S
+                    self.__case = CommandCase.Case2S
+                    self.__content.append(0x00)
+                elif Le < 65536:
+                    # Case 2E
+                    self.__case = CommandCase.Case2E
+                    self.__content.extend(int.to_bytes(Le, 3, byteorder='big'))
+                elif Le == 65536:
+                    # Case 2E
+                    self.__case = CommandCase.Case2E
+                    self.__content.extend([0x00, 0x00, 0x00])
+                else:
+                    raise ValueError(
+                        F"CommandApdu(): Le should be [0-65,536], received: {Le}")
+
+            case _, None:
+                # Case 3
+                Lc = len(data)
+                if Lc == 0:
+                    raise ValueError(
+                        F"CommandApdu(): data should not be empty, received: {data}")
+                elif Lc < 256:
+                    # Case 3S
+                    self.__case = CommandCase.Case3S
+                    self.__content.append(Lc)
+                    self.__content.extend(data)
+                elif Lc < 65536:
+                    # Case 3E
+                    self.__case = CommandCase.Case3E
+                    self.__content.extend(int.to_bytes(Lc, 3, byteorder='big'))
+                else:
+                    raise ValueError(
+                        F"CommandApdu(): length of data should be [1-65,535] bytes, received {Lc} bytes ({data})")
+
+            case _, _:
+                # Case 4
+                Lc = len(data)
+                if Le <= 0:
+                    raise ValueError(
+                        F"CommandApdu(): Le should be [0-65,536], received: {Le}")
+                elif Lc == 0:
+                    raise ValueError(
+                        F"CommandApdu(): data should not be empty, received: {data}")
+                elif Lc < 256 and Le <= 256:
+                    # Case 4S
+                    self.__case = CommandCase.Case4S
+                    self.__content.append(Lc)
+                    self.__content.extend(data)
+                    if Le == 256:
+                        self.__content.append(0x00)
+                    else:
+                        self.__content.append(Le)
+                elif Lc < 65536 and Le <= 65536:
+                    # Case 4E
+                    self.__case = CommandCase.Case4E
+                    self.__content.extend(int.to_bytes(Lc, 3, byteorder='big'))
+                    self.__content.extend(data)
+                    if Le == 65536:
+                        self.__content.extend([0x00, 0x00])
+                    else:
+                        self.__content.extend(
+                            int.to_bytes(Le, 2, byteorder='big'))
+
+    @classmethod
+    def from_string(cls, apdu_str: str):
+        _apdu_list = _to_intlist(
             apdu_str, "CommandApdu.__init__()", "apdu_str")
 
-        apdu_length = len(self.__list)
+        apdu_length = len(_apdu_list)
 
         if apdu_length < 4:
             raise ValueError(
                 F'Wrong Command APDU length: expected 4 or more bytes but received {apdu_length}')
 
         elif apdu_length == 4:
-            self.case = CommandCase.Case1
+            # Case 1
+            return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3])
 
         elif apdu_length == 5:
-            self.case = CommandCase.Case2s
+            # Case 2S
+            return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], Le=_apdu_list[4])
 
-        elif self.__list[4] != 0x00:
-            if apdu_length == 5 + self.__list[4]:
-                self.case = CommandCase.Case3s
-            elif apdu_length == 5 + self.__list[4] + 1:
-                self.case = CommandCase.Case4s
+        elif _apdu_list[4] != 0x00:
+            if apdu_length == 5 + _apdu_list[4]:
+                # Case 3S
+                return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], data=_apdu_list[5:])
+            elif apdu_length == 5 + _apdu_list[4] + 1:
+                # Case 4S
+                return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], data=_apdu_list[5:-1], Le=_apdu_list[-1])
             else:
                 raise ValueError(
-                    F'Wrong Command APDU length: expected {5+self.__list[4]} bytes for Case 3s or {5+self.__list[4]+1} bytes for Case 4s but received {apdu_length} bytes instead')
+                    F'Wrong Command APDU length: expected {5+_apdu_list[4]} bytes for Case 3s or {5+_apdu_list[4]+1} bytes for Case 4s but received {apdu_length} bytes instead')
 
         else:
             # Extended length cases
             if apdu_length == 7:
-                self.case = CommandCase.Case2e
+                # Case 2E
+                if int.from_bytes(_apdu_list[4:], byteorder='big') == 0:
+                    return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], Le=65536)
+                else:
+                    return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], Le=int.from_bytes(_apdu_list[4:], byteorder='big'))
 
-            elif apdu_length == 7 + self.__list[5] * 0x0100 + self.__list[6]:
-                self.case = CommandCase.Case3e
+            elif apdu_length == 7 + _apdu_list[5] * 0x0100 + _apdu_list[6]:
+                # Case 3E
+                return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], data=_apdu_list[7:])
 
-            elif apdu_length == 7 + self.__list[5] * 0x0100 + self.__list[6] + 2:
-                self.case = CommandCase.Case4e
+            elif apdu_length == 7 + _apdu_list[5] * 0x0100 + _apdu_list[6] + 2:
+                # Case 4E
+                return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], data=_apdu_list[5:-2], Le=int.from_bytes(_apdu_list[-2:], byteorder='big'))
 
             else:
                 raise ValueError(
-                    F'Wrong Command APDU length: expected {7 + self.__list[5] * 0x0100 + self.__list[6]} bytes for Case 3e or {7 + self.__list[5] * 0x0100 + self.__list[6] + 2} bytes for Case 4e but received {apdu_length} bytes instead')
+                    F'Wrong Command APDU length: expected {7 + _apdu_list[5] * 0x0100 + _apdu_list[6]} bytes for Case 3e or {7 + _apdu_list[5] * 0x0100 + _apdu_list[6] + 2} bytes for Case 4e but received {apdu_length} bytes instead')
+
+    @property
+    def case(self):
+        return self.__case
 
     @property
     def list(self):
-        return deepcopy(self.__list)
+        return list(self.__content)
 
     @property
     def string(self):
-        return _to_hstr(self.__list)
+        return _to_hstr(self.__content)
 
     @property
     def array(self):
-        return array('B', self.__list)
+        return deepcopy(self.__content)
 
     @property
     def header(self):
-        return _to_hstr(self.__list[0:4])
+        return _to_hstr(self.__content[0:4])
 
     @property
     def body(self):
-        return _to_hstr(self.__list[4:])
+        return _to_hstr(self.__content[4:])
 
     @property
     def CLA(self):
-        return F"{self.__list[0]:02X}"
+        return self.__content[0]
 
     @property
     def INS(self):
-        return F"{self.__list[1]:02X}"
+        return self.__content[1]
 
     @property
     def P1(self):
-        return F"{self.__list[2]:02X}"
+        return self.__content[2]
 
     @property
     def P2(self):
-        return F"{self.__list[3]:02X}"
+        return self.__content[3]
 
     @property
     def Lc(self):
-        match self.case:
-            case CommandCase.Case1 | CommandCase.Case2s | CommandCase.Case2e:
+        match self.__case:
+            case CommandCase.Case1 | CommandCase.Case2S | CommandCase.Case2E:
                 raise ValueError(
-                    F'Command APDU has no Lc field ({self.case.name})')
-            case CommandCase.Case3s | CommandCase.Case4s:
-                return F"{self.__list[4]:02X}"
-            case CommandCase.Case3e | CommandCase.Case4e:
-                return _to_hstr(self.__list[4:7])
+                    F'Command APDU has no Lc field ({self.case.value})')
+            case CommandCase.Case3S | CommandCase.Case4S | CommandCase.Case3E | CommandCase.Case4E:
+                return len(self.data)
 
     @property
     def data(self):
         match self.case:
-            case CommandCase.Case1 | CommandCase.Case2s | CommandCase.Case2e:
+            case CommandCase.Case1 | CommandCase.Case2S | CommandCase.Case2E:
                 raise ValueError(
-                    F'Command APDU has no Data field ({self.case.name})')
-            case CommandCase.Case3s:
-                return _to_hstr(self.__list[5:])
-            case CommandCase.Case4s:
-                return _to_hstr(self.__list[5:-1])
-            case CommandCase.Case3e:
-                return _to_hstr(self.__list[7:])
-            case CommandCase.Case4e:
-                return _to_hstr(self.__list[7:-2])
+                    F'Command APDU has no Data field ({self.case.value})')
+            case CommandCase.Case3S:
+                return self.__content[5:]
+            case CommandCase.Case4S:
+                return self.__content[5:-1]
+            case CommandCase.Case3E:
+                return self.__content[7:]
+            case CommandCase.Case4E:
+                return self.__content[7:-2]
 
     @property
     def Le(self):
         match self.case:
-            case CommandCase.Case1 | CommandCase.Case3s | CommandCase.Case3e:
+            case CommandCase.Case1 | CommandCase.Case3S | CommandCase.Case3E:
                 raise ValueError(
-                    F'Command APDU has no Le field ({self.case.name})')
-            case CommandCase.Case2s | CommandCase.Case4s:
-                return F"{self.__list[-1]:02X}"
-            case CommandCase.Case2e | CommandCase.Case4e:
-                return _to_hstr(self.__list[-2:])
+                    F'Command APDU has no Le field ({self.case.value})')
+            case CommandCase.Case2S | CommandCase.Case4S:
+                if self.__content[-1] == 0x00:
+                    return 256
+                else:
+                    return self.__content[-1]
+            case CommandCase.Case2E | CommandCase.Case4E:
+                if list(self.__content[-2:]) == [0x00, 0x00]:
+                    return 65536
+                else:
+                    return int.from_bytes(self.__content[-2:], byteorder='big')
 
     def __str__(self):
-        str = F"{self.__class__.__name__} ({self.case.value}): CLA={self.CLA}, INS={self.INS}, P1={self.P1}, P2={self.P2}"
+        str = F"{self.__class__.__name__} ({self.case.value}): CLA={self.CLA:02X}, INS={self.INS:02X}, P1={self.P1:02X}, P2={self.P2:02X}"
 
         match self.case:
             case CommandCase.Case1:
                 return str
-            case CommandCase.Case2s | CommandCase.Case2e:
-                return str + F", Le={self.Le}"
-            case CommandCase.Case3s | CommandCase.Case3e:
-                return str + F", Lc={self.Lc}, DATA={self.data}"
-            case CommandCase.Case4s | CommandCase.Case4e:
-                return str + F", Lc={self.Lc}, DATA={self.data}, Le={self.Le}"
+            case CommandCase.Case2S:
+                return str + F", Le={self.Le:02X}"
+            case CommandCase.Case2E:
+                return str + F", Le={self.Le:06X}"
+            case CommandCase.Case3S:
+                return str + F", Lc={self.Lc:02X}, DATA={_to_hstr(self.data)}"
+            case CommandCase.Case3E:
+                return str + F", Lc={self.Lc:06X}, DATA={_to_hstr(self.data)}"
+            case CommandCase.Case4S:
+                return str + F", Lc={self.Lc:02X}, DATA={_to_hstr(self.data)}, Le={self.Le:02X}"
+            case CommandCase.Case4E:
+                return str + F", Lc={self.Lc:06X}, DATA={_to_hstr(self.data)}, Le={self.Le:04X}"
 
     def update_Le(self, Le: str):
         match self.case:
-            case CommandCase.Case1 | CommandCase.Case3s | CommandCase.Case3e:
+            case CommandCase.Case1 | CommandCase.Case3S | CommandCase.Case3E:
                 raise ValueError(
-                    F'Command APDU has no Le field ({self.case.name})')
+                    F'Command APDU has no Le field ({self.case.value})')
 
-            case CommandCase.Case2s | CommandCase.Case2e:
-                return CommandApdu(_dict_to_string({CommandField.Header: self.header, CommandField.Le: Le}))
+            case CommandCase.Case2S | CommandCase.Case2E:
+                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, Le=int(Le, 16))
 
-            case CommandCase.Case4s | CommandCase.Case4e:
-                return CommandApdu(_dict_to_string({CommandField.Header: self.header,
-                                                    CommandField.Data: self.data,
-                                                    CommandField.Le: Le}))
+            case CommandCase.Case4S | CommandCase.Case4E:
+                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, data=list(self.data), Le=int(Le, 16))
 
-    def updated_Le(self, Le: str):
+    def with_updated_Le(self, Le: int):
         match self.case:
-            case CommandCase.Case1 | CommandCase.Case3s | CommandCase.Case3e:
+            case CommandCase.Case1 | CommandCase.Case3S | CommandCase.Case3E:
                 raise ValueError(
-                    F'Command APDU has no Le field ({self.case.name})')
+                    F'Command APDU has no Le field ({self.case.value})')
 
-            case CommandCase.Case2s | CommandCase.Case4s:
-                if len(Le) != 2:
-                    raise ValueError(
-                        F"Wrong Le, expected 1 byte, received: {Le}")
-                else:
-                    return CommandApdu(self.string[:-2] + Le)
+            case CommandCase.Case2S | CommandCase.Case2E:
+                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, Le=Le)
 
-            case  CommandCase.Case2e | CommandCase.Case4e:
-                if len(Le) != 4:
-                    raise ValueError(
-                        F"Wrong Le, expected 2 bytes, received: {Le}")
-                else:
-                    return CommandApdu(self.string[:-4] + Le)
+            case  CommandCase.Case4S | CommandCase.Case4E:
+                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, data=list(self.data), Le=Le)
 
 
 class StatusBytes:
