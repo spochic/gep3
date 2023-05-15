@@ -54,6 +54,7 @@ class ResponseProcessingState(Enum):
 
 # Command and Response APDU classes
 class CommandApdu:
+    # type: ignore
     def __init__(self, CLA: int, INS: int, P1: int, P2: int, data: list[int] = None, Le: int = None):
         if CLA < 0 or CLA > 255:
             raise ValueError(
@@ -67,9 +68,10 @@ class CommandApdu:
         elif P2 < 0 or P2 > 255:
             raise ValueError(
                 F"CommandApdu(): P2 should be [0-255], received: {P2}")
-        elif not _is_int_list(data):
-            raise ValueError(
-                F"CommandApdu(): data should be list of [0-255], received: {data}")
+        elif data is not None:
+            if not _is_int_list(data):
+                raise ValueError(
+                    F"CommandApdu(): data should be list of [0-255], received: {data}")
 
         self.__content = array('B', [CLA, INS, P1, P2])
 
