@@ -55,18 +55,18 @@ def cold_reset(ifd: InterfaceDevice, bPowerSelect: PowerSelection, timeout=None)
     slot_status: RDR_to_PC_SlotStatus = get_slot_status(ifd, timeout)
     message_log = [slot_status]
 
-    if slot_status.command_status() != CommandStatus.ProcessedWithoutError:
+    if slot_status.command_status != CommandStatus.ProcessedWithoutError:
         # Abort if Get Slot Status processed with error
         return {}, message_log
 
     # CommandStatus.ProcessedWithoutError
-    if slot_status.icc_status() in [IccStatus.NoIccPresent, IccStatus.RFU]:
+    if slot_status.icc_status in [IccStatus.NoIccPresent, IccStatus.RFU]:
         # Abort if no card present or RFU
         message_log.append(slot_status)
         return {}, message_log
 
     # IccStatus.IccPresentAndActive or IccStatus.IccPresentAndInactive
-    if slot_status.icc_status() == IccStatus.IccPresentAndActive:
+    if slot_status.icc_status == IccStatus.IccPresentAndActive:
         # Card already powered, must be powered down first
         slot_status: RDR_to_PC_SlotStatus = icc_power_off(ifd, timeout)
         message_log.append(slot_status)
@@ -77,16 +77,16 @@ def cold_reset(ifd: InterfaceDevice, bPowerSelect: PowerSelection, timeout=None)
     power_on: RDR_to_PC_DataBlock = icc_power_on(
         ifd, bPowerSelect, timeout)
     message_log.append(power_on)
-    if power_on.command_status() != CommandStatus.ProcessedWithoutError:
+    if power_on.command_status != CommandStatus.ProcessedWithoutError:
         return {}, message_log
 
-    response = {'atr': power_on.data()}
+    response = {'atr': power_on.data}
 
     parameters: RDR_to_PC_Parameters = get_parameters(ifd, timeout)
     message_log.append(parameters)
-    if parameters.command_status() != CommandStatus.ProcessedWithoutError:
+    if parameters.command_status != CommandStatus.ProcessedWithoutError:
         return response, message_log
 
-    response['protocol'] = parameters.protocol()
+    response['protocol'] = parameters.protocol
 
     return response, message_log
