@@ -256,8 +256,8 @@ def transmit(hcard, protocol: Protocol, command_apdu: CommandApdu) -> ResponseAp
         raise PcscError(err)
 
     response_apdu = ResponseApdu.from_list(response)
-    logging.debug(F"Tx-> {command_apdu.str()}")
-    logging.debug(F"Rx<- {response_apdu.str()}")
+    logging.debug(F"Tx-> {command_apdu.string}")
+    logging.debug(F"Rx<- {response_apdu.string}")
 
     return response_apdu
 

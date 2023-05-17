@@ -92,7 +92,7 @@ def status(hcard):
         return None, str(e)
 
 
-def transmit(hcard, protocol: Protocol, command_apdu: CommandApdu) -> ResponseApdu:
+def transmit(hcard, protocol: Protocol, command_apdu: CommandApdu):
     """transmit()
     """
     try:
@@ -101,7 +101,7 @@ def transmit(hcard, protocol: Protocol, command_apdu: CommandApdu) -> ResponseAp
         return None, str(e)
 
 
-def send_apdu(hcard, protocol: Protocol, command_apdu: CommandApdu) -> ResponseApdu:
+def send_apdu(hcard, protocol: Protocol, command_apdu: CommandApdu):
     """send_apdu()
     """
     try:
