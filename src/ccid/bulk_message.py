@@ -139,7 +139,7 @@ class BulkMessage:
     def __str__(self):
         message_str = self.string
         content_hex = F"{message_str[0:2]} {message_str[2:10]} {message_str[10:12]} {message_str[12:14]} {message_str[14:]}"
-        return F"{self.message_type().name} ({content_hex}): bSlot={message_str[10:12]}, bSeq={message_str[12:14]}"
+        return F"{self.message_type.name} ({content_hex}): bSlot={message_str[10:12]}, bSeq={message_str[12:14]}"
 
 
 class BulkOutMessage(BulkMessage):
@@ -149,16 +149,16 @@ class BulkOutMessage(BulkMessage):
 class BulkInMessage(BulkMessage):
     @property
     def icc_status(self):
-        return IccStatus(self.bStatus() & 0x03)
+        return IccStatus(self.bStatus & 0x03)
 
     @property
     def command_status(self):
-        return CommandStatus(self.bStatus() >> 6)
+        return CommandStatus(self.bStatus >> 6)
 
     @property
     def error(self):
-        if self.command_status() == CommandStatus.Failed:
-            return SlotError(self.bError())
+        if self.command_status == CommandStatus.Failed:
+            return SlotError(self.bError)
         else:
             return SlotError()
 
@@ -171,7 +171,7 @@ class BulkInMessage(BulkMessage):
         return self._message[8]
 
     def __str__(self):
-        if self.command_status() == CommandStatus.Failed:
-            return F"{super().__str__()}, {self.command_status().name}, {self.error()}, {self.icc_status().name}"
+        if self.command_status == CommandStatus.Failed:
+            return F"{super().__str__()}, {self.command_status.name}, {self.error}, {self.icc_status.name}"
         else:
-            return F"{super().__str__()}, {self.command_status().name}, {self.icc_status().name}"
+            return F"{super().__str__()}, {self.command_status.name}, {self.icc_status.name}"

@@ -45,14 +45,14 @@ class PC_to_RDR_IccPowerOn(BulkOutMessage):
 
     @property
     def power_select(self):
-        return PowerSelection(self.bPowerSelect())
+        return PowerSelection(self.bPowerSelect)
 
     @property
     def bPowerSelect(self):
-        return self.array()[7]
+        return self.array[7]
 
     def __str__(self):
-        return F"{super().__str__()}, {self.power_select().name}"
+        return F"{super().__str__()}, {self.power_select.name}"
 
 
 class PC_to_RDR_IccPowerOff(BulkOutMessage):

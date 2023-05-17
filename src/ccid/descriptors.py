@@ -36,7 +36,7 @@ class SmartCardDeviceClassDescriptor:
 
     @property
     def features(self):
-        _features = int.from_bytes(self.dwFeatures(), byteorder='little')
+        _features = int.from_bytes(self.dwFeatures, byteorder='little')
         description = []
         if _features & 0x00000002:
             description.append(

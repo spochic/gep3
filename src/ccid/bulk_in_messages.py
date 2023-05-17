@@ -28,11 +28,11 @@ class ClockStatus(IntEnum):
 
 class RDR_to_PC_NotifySlotChange(BulkInMessage):
     def current_state(self, slot_nr: int) -> SlotCurrentState:
-        slot_current_state = (self.bmSlotICCState() >> (2 * slot_nr)) & 0x1
+        slot_current_state = (self.bmSlotICCState >> (2 * slot_nr)) & 0x1
         return SlotCurrentState(slot_current_state)
 
     def changed_status(self, slot_nr: int) -> SlotCurrentState:
-        slot_changed_status = (self.bmSlotICCState() >>
+        slot_changed_status = (self.bmSlotICCState >>
                                (2 * slot_nr + 1)) & 0x1
         return SlotCurrentState(slot_changed_status)
 
@@ -46,10 +46,10 @@ class RDR_to_PC_NotifySlotChange(BulkInMessage):
 
 class RDR_to_PC_DataBlock(BulkInMessage):
     def __str__(self):
-        if self.command_status() == CommandStatus.Failed:
+        if self.command_status == CommandStatus.Failed:
             return F"{super().__str__()}"
         else:
-            return F"{super().__str__()}, data={self.data()}"
+            return F"{super().__str__()}, data={self.data}"
 
     @property
     def bChainParameter(self):
@@ -59,27 +59,27 @@ class RDR_to_PC_DataBlock(BulkInMessage):
 class RDR_to_PC_SlotStatus(BulkInMessage):
     @property
     def clock_status(self):
-        return ClockStatus(self.bClockStatus())
+        return ClockStatus(self.bClockStatus)
 
     @property
     def bClockStatus(self):
         return self._message[9]
 
     def __str__(self):
-        return F"{super().__str__()}, {self.clock_status().name}"
+        return F"{super().__str__()}, {self.clock_status.name}"
 
 
 class RDR_to_PC_Parameters(BulkInMessage):
     @property
     def protocol(self):
-        return Protocol(self.bProtocolNum())
+        return Protocol(self.bProtocolNum)
 
     @property
     def bProtocolNum(self):
         return self._message[9]
 
     def __str__(self):
-        return F"{super().__str__()}, protocol {self.protocol()}"
+        return F"{super().__str__()}, protocol {self.protocol}"
 
 
 # Functions
