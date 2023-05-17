@@ -205,15 +205,15 @@ class CommandApdu:
                     F'Wrong Command APDU length: expected {7 + _apdu_list[5] * 0x0100 + _apdu_list[6]} bytes for Case 3e or {7 + _apdu_list[5] * 0x0100 + _apdu_list[6] + 2} bytes for Case 4e but received {apdu_length} bytes instead')
 
     @property
-    def case(self):
+    def case(self) -> CommandCase:
         return self.__case
 
     @property
-    def list(self):
+    def list(self) -> list[int]:
         return list(self.__content)
 
     @property
-    def string(self):
+    def string(self) -> str:
         return _to_hstr(self.__content)
 
     @property
@@ -222,11 +222,11 @@ class CommandApdu:
 
     @property
     def header(self):
-        return _to_hstr(self.__content[0:4])
+        return self.__content[0:4]
 
     @property
     def body(self):
-        return _to_hstr(self.__content[4:])
+        return self.__content[4:]
 
     @property
     def CLA(self):
