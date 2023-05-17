@@ -15,6 +15,20 @@ class PowerSelection(IntEnum):
     Volts_3_0 = 0x02
     Volts_1_8 = 0x03
 
+    def __str__(self):
+        match self:
+            case PowerSelection.AutomaticVoltageSelection:
+                return 'Automatic power selection'
+
+            case PowerSelection.Volts_5_0:
+                return '5V'
+
+            case PowerSelection.Volts_3_0:
+                return '3V'
+
+            case PowerSelection.Volts_1_8:
+                return '1.8V'
+
 
 class PC_to_RDR_GetSlotStatus(BulkOutMessage):
     def __init__(self, bSlot: int, bSeq: int):
@@ -29,9 +43,11 @@ class PC_to_RDR_IccPowerOn(BulkOutMessage):
                bPowerSelect, 0x00, 0x00]
         super().__init__(array('B', msg))
 
+    @property
     def power_select(self):
         return PowerSelection(self.bPowerSelect())
 
+    @property
     def bPowerSelect(self):
         return self.array()[7]
 

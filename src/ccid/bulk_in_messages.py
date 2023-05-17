@@ -36,6 +36,7 @@ class RDR_to_PC_NotifySlotChange(BulkInMessage):
                                (2 * slot_nr + 1)) & 0x1
         return SlotCurrentState(slot_changed_status)
 
+    @property
     def bmSlotICCState(self):
         return self._message[1]
 
@@ -50,14 +51,17 @@ class RDR_to_PC_DataBlock(BulkInMessage):
         else:
             return F"{super().__str__()}, data={self.data()}"
 
+    @property
     def bChainParameter(self):
         return self._message[9]
 
 
 class RDR_to_PC_SlotStatus(BulkInMessage):
+    @property
     def clock_status(self):
         return ClockStatus(self.bClockStatus())
 
+    @property
     def bClockStatus(self):
         return self._message[9]
 
@@ -66,9 +70,11 @@ class RDR_to_PC_SlotStatus(BulkInMessage):
 
 
 class RDR_to_PC_Parameters(BulkInMessage):
+    @property
     def protocol(self):
         return Protocol(self.bProtocolNum())
 
+    @property
     def bProtocolNum(self):
         return self._message[9]
 

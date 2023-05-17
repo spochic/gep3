@@ -26,12 +26,15 @@ class SmartCardDeviceClassDescriptor:
             raise TypeError(
                 F"Message should be array or list[int], received {type(descriptor)}")
 
+    @property
     def bMaxSlotIndex(self):
         return self._descriptor[4]
 
+    @property
     def dwFeatures(self):
         return self._descriptor[40:44]
 
+    @property
     def features(self):
         _features = int.from_bytes(self.dwFeatures(), byteorder='little')
         description = []

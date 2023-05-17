@@ -96,38 +96,48 @@ class BulkMessage:
             raise TypeError(
                 F"Message should be array or list[int], received {type(message)}")
 
+    @property
     def array(self) -> array:
         return deepcopy(self._message)
 
-    def str(self) -> str:
+    @property
+    def string(self) -> str:
         return _to_hstr(self._message)
 
+    @property
     def header(self) -> str:
         return _to_hstr(self._message[0:10])
 
+    @property
     def data(self) -> str:
         return _to_hstr(self._message[10:])
 
+    @property
     def message_type(self) -> MessageType:
         return MessageType(self._message[0])
 
+    @property
     def length(self) -> int:
         return int.from_bytes(self._message[1:5], byteorder='little')
 
+    @property
     def bMessageType(self) -> int:
         return self._message[0]
 
+    @property
     def dwLength(self) -> array:
         return self._message[1:5]
 
+    @property
     def bSlot(self) -> int:
         return self._message[5]
 
+    @property
     def bSeq(self) -> int:
         return self._message[6]
 
     def __str__(self):
-        message_str = self.str()
+        message_str = self.string
         content_hex = F"{message_str[0:2]} {message_str[2:10]} {message_str[10:12]} {message_str[12:14]} {message_str[14:]}"
         return F"{self.message_type().name} ({content_hex}): bSlot={message_str[10:12]}, bSeq={message_str[12:14]}"
 
@@ -137,21 +147,26 @@ class BulkOutMessage(BulkMessage):
 
 
 class BulkInMessage(BulkMessage):
+    @property
     def icc_status(self):
         return IccStatus(self.bStatus() & 0x03)
 
+    @property
     def command_status(self):
         return CommandStatus(self.bStatus() >> 6)
 
+    @property
     def error(self):
         if self.command_status() == CommandStatus.Failed:
             return SlotError(self.bError())
         else:
             return SlotError()
 
+    @property
     def bStatus(self):
         return self._message[7]
 
+    @property
     def bError(self):
         return self._message[8]
 
