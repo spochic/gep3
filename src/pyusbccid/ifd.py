@@ -1,22 +1,29 @@
-"""pyusb.py: CCID wrapper for PyUSB
+"""ifd.py: CCID Interface Devices
 """
 # Standard library imports
 import logging
+from enum import IntEnum
 
 # Third party imports
 import usb.core
 import usb.util
 
 # Local application imports
-from ccid import BulkOutMessage, BulkInMessage, RDR_to_PC, PC_to_RDR_XfrBlock
-from iso7816 import CommandApdu, ResponseApdu
+from ccid import BulkOutMessage, BulkInMessage, RDR_to_PC
+
+
+# Enum definitions
+class ExchangeLevel(IntEnum):
+    Tpdu = 0x00010000
+    ShortApdu = 0x00020000
+    ShortAndExtendedApdu = 0x00040000
 
 
 # Class definitions
 class InterfaceDevice:
     def __init__(self, device: usb.core.Device, interface: usb.core.Interface, cfg_index: int, interface_index: int, slot: int = 0):
         self.device: usb.core.Device = device
-        self.cfg_index = cfg_index
+        self.configuration_index = cfg_index
         self.interface_index = interface_index
         self.bSeq: int = 0
         self.bSlot: int = slot
@@ -45,7 +52,7 @@ class InterfaceDevice:
             self.name = F"{self.device.manufacturer} {self.device.product}"
 
         self.serial_number = self.device.serial_number
-        self.identifier = F"{self.serial_number}.{self.cfg_index}.{self.interface_index}"
+        self.identifier = F"{self.serial_number}.{self.configuration_index}.{self.interface_index}"
 
         # Checking whether OS driver already attached
         logging.info(F"{self}: Checking whether OS driver is already attached")
@@ -61,7 +68,7 @@ class InterfaceDevice:
             self.device.attach_kernel_driver(self.interface_index)
 
     def cfg(self) -> usb.core.Configuration:
-        return self.device[self.cfg_index]
+        return self.device[self.configuration_index]
 
     def intf(self, alternate_setting: int = 0) -> usb.core.Interface:
         return self.cfg()[(self.interface_index, alternate_setting)]
@@ -106,7 +113,7 @@ class InterfaceDevice:
         return message_in
 
     def __str__(self):
-        return F"{self.name} (serial number = {self.serial_number}, configuration number = {self.cfg_index}, interface number = {self.interface_index})"
+        return F"{self.name} (serial number = {self.serial_number}, configuration number = {self.configuration_index}, interface number = {self.interface_index})"
 
 
 # Function defitions

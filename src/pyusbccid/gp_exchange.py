@@ -7,8 +7,8 @@ from typing import Union
 # Third party imports
 
 # Local application imports
-from .ifd import InterfaceDevice
-from .apdu_exchange import send_apdu
+from pyusbccid.ifd import InterfaceDevice
+from pyusbccid.apdu_exchange import send_apdu
 from ccid import Protocol
 from iso7816 import ResponseApdu
 from globalplatform import FileOccurrence, ApplicationIdentifier, Select, GetData, SecureMessaging, GetDataObject, CPLC
@@ -37,9 +37,9 @@ def GET_CPLC(ifd: InterfaceDevice,
              secure_messaging: SecureMessaging = SecureMessaging.No,
              logical_channel: int = 0,
              timeout=None) -> Union[None, CPLC]:
-    response_apdu: ResponseApdu = get_data(
+    response_apdu: ResponseApdu = GET_DATA(
         ifd, protocol, GetDataObject.CardProductionLifeCycle, secure_messaging, logical_channel, timeout)
-    if response_apdu.SW12() == '9000':
-        return CPLC(response_apdu.data()[6:])
+    if response_apdu.SW12 == '9000':
+        return CPLC(response_apdu.data[6:])
     else:
-        None
+        return None

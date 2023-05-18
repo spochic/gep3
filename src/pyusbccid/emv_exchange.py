@@ -7,8 +7,8 @@ from typing import Union
 # Third party imports
 
 # Local application imports
-from .ifd import InterfaceDevice
-from .apdu_exchange import send_apdu
+from pyusbccid.ifd import InterfaceDevice
+from pyusbccid.apdu_exchange import send_apdu
 from ccid import Protocol
 from iso7816 import ResponseApdu
 from emv import Select, ApplicationIdentifier, GetProcessingOptions

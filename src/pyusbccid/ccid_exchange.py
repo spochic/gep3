@@ -5,7 +5,7 @@
 # Third party imports
 
 # Local application imports
-from .ifd import InterfaceDevice
+from pyusbccid.ifd import InterfaceDevice
 from ccid import PC_to_RDR_GetParameters, PC_to_RDR_GetSlotStatus, PC_to_RDR_IccPowerOff, PC_to_RDR_IccPowerOn, PC_to_RDR_XfrBlock,\
     RDR_to_PC_DataBlock, RDR_to_PC_Parameters, RDR_to_PC_SlotStatus,\
     PowerSelection, CommandStatus, IccStatus

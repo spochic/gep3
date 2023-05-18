@@ -5,10 +5,10 @@
 # Third party imports
 
 # Local application imports
-from .ifd import InterfaceDevice
-from .messages_exchange import xfr_block
+from pyusbccid.ifd import InterfaceDevice
+from pyusbccid.ccid_exchange import xfr_block
 from ccid import Protocol, PC_to_RDR_XfrBlock
-from iso7816 import CommandApdu, ResponseApdu, CommandCase, GetResponse
+from iso7816 import CommandApdu, ResponseApdu, CommandCase, GetResponse, CLA
 
 
 # Function definitions
@@ -19,27 +19,27 @@ def send_apdu(ifd: InterfaceDevice, protocol: Protocol, command_apdu: CommandApd
                 case CommandCase.Case1:
                     return transmit_apdu(ifd, command_apdu, timeout)
 
-                case CommandCase.Case2s:
+                case CommandCase.Case2S:
                     response_apdu = transmit_apdu(ifd,
                                                   command_apdu, timeout)
-                    if response_apdu.SW1() == '6C':
+                    if response_apdu.SW1 == '6C':
                         # Case 2S.3 — Process aborted; Ne not accepted, Na indicated
-                        return transmit_apdu(ifd, command_apdu.updated_Le(response_apdu.SW2()), timeout)
+                        return transmit_apdu(ifd, command_apdu.with_updated_Le(int(response_apdu.SW2, 16)), timeout)
                     else:
                         return response_apdu
 
-                case CommandCase.Case3s:
+                case CommandCase.Case3S:
                     return transmit_apdu(ifd, command_apdu, timeout)
 
-                case CommandCase.Case4s:
+                case CommandCase.Case4S:
                     response_apdu = transmit_apdu(ifd,
                                                   command_apdu, timeout)
-                    if response_apdu.SW12() == '9000':
+                    if response_apdu.SW12 == '9000':
                         # Case 4S.2 — Process completed
-                        return transmit_apdu(ifd, GetResponse(command_apdu.CLA(), int(command_apdu.Le(), 16)), timeout)
-                    elif response_apdu.SW1() == '61':
+                        return transmit_apdu(ifd, GetResponse(CLA.from_value(command_apdu.CLA), command_apdu.Le), timeout)
+                    elif response_apdu.SW1 == '61':
                         # Case 4S.3 — Process completed with information added
-                        return transmit_apdu(ifd, GetResponse(command_apdu.CLA(), min(int(response_apdu.SW2(), 16), int(command_apdu.Le(), 16))), timeout)
+                        return transmit_apdu(ifd, GetResponse(CLA.from_value(command_apdu.CLA), min(int(response_apdu.SW2, 16), command_apdu.Le)), timeout)
                     else:
                         return response_apdu
 
@@ -56,6 +56,6 @@ def send_apdu(ifd: InterfaceDevice, protocol: Protocol, command_apdu: CommandApd
 
 
 def transmit_apdu(ifd: InterfaceDevice, command_apdu: CommandApdu, timeout=None) -> ResponseApdu:
-    response = xfr_block(ifd, command_apdu.list(), timeout)
+    response = xfr_block(ifd, command_apdu.list, timeout)
 
     return ResponseApdu(response.data())
