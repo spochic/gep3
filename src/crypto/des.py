@@ -3,14 +3,16 @@
 
 # Standard library imports
 import math as _math
+from functools import reduce
+from operator import __xor__
 
 # Third party imports
 
 # Local application imports
+from common.binary import HexString
 import common.hstr as _hstr
 import common.bitstr as _bitstr
 import common.str as _str
-
 import crypto.modes as modes
 
 _IP = [58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4, 62, 54, 46, 38, 30, 22, 14, 6, 64, 56, 48, 40, 32, 24, 16,
@@ -42,16 +44,20 @@ _S = [{'110000': '1111', '110001': '0101', '110101': '0011', '110100': '1001', '
       {'110000': '0000', '110001': '1111', '110101': '1001', '110100': '1010', '010100': '0011', '010101': '0110', '001100': '1011', '001101': '0111', '011110': '0111', '011111': '0010', '001001': '1010', '001000': '0110', '011011': '1110', '011010': '0000', '000110': '0100', '000111': '1000', '000011': '1111', '000010': '0010', '100100': '0100', '100101': '1110', '111100': '0101', '111101': '0110', '100010': '1011', '100011': '0001', '101110': '0010', '101111': '1101', '111001': '0011', '111000': '1111', '101011': '1010', '101010': '1100', '110011': '1100', '110010': '0110', '010010': '1001', '010011': '0101', '010111': '1011', '010110': '1110', '110110': '1101', '110111': '0000', '011000': '0101', '011001': '0000', '001111': '0100', '001110': '0001', '011101': '1001', '011100': '1100', '001010': '1111', '001011': '0011', '101101': '1000', '000000': '1101', '000001': '0001', '100111': '0111', '100110': '0001', '000101': '1101', '000100': '1000', '111111': '1011', '111110': '1000', '100001': '0010', '100000': '0111', '010001': '1100', '010000': '1010', '101100': '1110', '111010': '0011', '111011': '0101', '101000': '1001', '101001': '0100'}]
 
 
-def dea_e(key_16h: str, block_16h: str) -> str:
+def dea_e(key_16h: HexString, block_16h: HexString) -> HexString:
     """dea_e: DES encryption algorithm
     """
-    # cleaning inputs
-    key_16h = _clean_key(key_16h, 16)
-    block_16h = _clean_block(block_16h, 16)
+    # checking inputs
+    if key_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {key_16h.byte_length}: {key_16h}")
+    if block_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {block_16h.byte_length}: {block_16h}")
 
     # converting the input from hexadecimal string to bit string
-    block_64 = _hstr.to_bitstr(block_16h)
-    key_64 = _hstr.to_bitstr(key_16h)
+    key_64 = key_16h.bit_string
+    block_64 = block_16h.bit_string
 
     # pre-computing the 16 round keys
     roundkeys = _roundkeys(key_64)
@@ -68,20 +74,25 @@ def dea_e(key_16h: str, block_16h: str) -> str:
 
     # applying the inversed initial permutation
     block_64 = _str.perm(R_32 + L_32, _IPINV)
+    assert len(block_64) == 64
 
-    return _bitstr.to_hstr(block_64)
+    return HexString(F"{int(block_64, 2):016X}")
 
 
-def dea_d(key_16h: str, block_16h: str) -> str:
+def dea_d(key_16h: HexString, block_16h: HexString) -> HexString:
     """dea_d: DES decryption algorithm
     """
-    # cleaning inputs
-    key_16h = _clean_key(key_16h, 16)
-    block_16h = _clean_block(block_16h, 16)
+    # checking inputs
+    if key_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {key_16h.byte_length}: {key_16h}")
+    if block_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {block_16h.byte_length}: {block_16h}")
 
     # converting the input from hexadecimal string to bit string
-    block_64 = _hstr.to_bitstr(block_16h)
-    key_64 = _hstr.to_bitstr(key_16h)
+    key_64 = key_16h.bit_string
+    block_64 = block_16h.bit_string
 
     # pre-computing the 16 round keys
     roundkeys = _roundkeys(key_64)
@@ -99,34 +110,45 @@ def dea_d(key_16h: str, block_16h: str) -> str:
 
     # applying the inversed initial permutation
     block_64 = _str.perm(R_32 + L_32, _IPINV)
+    assert len(block_64) == 64
 
-    return _bitstr.to_hstr(block_64)
+    return HexString(F"{int(block_64, 2):016X}")
 
 
-def dea_ede_cbc(key_16h: str, block_16h_n: str, iv_16h: str) -> str:
-    """dea_ede_cbc: Single DES encryption algorithm in CBC mnode
+def dea_ede_cbc(key_16h: HexString, block_16h_n: HexString, iv_16h: HexString) -> HexString:
+    """dea_ede_cbc: Single DES encryption algorithm in CBC mode
     """
-    # cleaning inputs
-    key_16h = _clean_key(key_16h, 16)
-    block_16h_n = _clean_n_blocks(block_16h_n, 16)
-    iv_16h = _clean_block(iv_16h, 16)
+    # checking inputs
+    if key_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {key_16h.byte_length}: {key_16h}")
+    if (block_16h_n.byte_length % 8) != 0:
+        raise ValueError(
+            F"Expected blocks of 8 bytes, received {block_16h_n.byte_length}: {block_16h_n}")
+    if iv_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {iv_16h.byte_length}: {iv_16h}")
 
-    return modes.cbc_encryption(dea_e, key_16h, block_16h_n, iv_16h)
+    return modes.cbc_encryption(dea_e, key_16h, block_16h_n.blocks(8), iv_16h)
 
 
-def tdea_2_ede(key_32h: str, block_16h: str) -> str:
+def tdea_2_ede(key_32h: HexString, block_16h: HexString) -> HexString:
     """tdea_2_ede: Triple DES encryption algorithm
     """
-    # cleaning inputs
-    key_32h = _clean_key(key_32h, 32)
-    block_16h = _clean_block(block_16h, 16)
+    # checking inputs
+    if key_32h.byte_length != 16:
+        raise ValueError(
+            F"Expected 16 bytes, received {key_32h.byte_length}: {key_32h}")
+    if block_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {block_16h.byte_length}: {block_16h}")
 
     # DES encryption with key #1
 
     # converting the input from hexadecimal string to bit string
-    block_64 = _hstr.to_bitstr(block_16h)
-    key_128 = _hstr.to_bitstr(key_32h)
+    key_128 = key_32h.bit_string
     key_64 = key_128[0:64]
+    block_64 = block_16h.bit_string
 
     # pre-computing the 16 round keys
     roundkeys1 = _roundkeys(key_64)
@@ -173,23 +195,28 @@ def tdea_2_ede(key_32h: str, block_16h: str) -> str:
 
     # applying the inversed initial permutation
     block_64 = _str.perm(R_32 + L_32, _IPINV)
+    assert len(block_64) == 64
 
-    return _bitstr.to_hstr(block_64)
+    return HexString(F"{int(block_64, 2):016X}")
 
 
-def tdea_2_ded(key_32h: str, block_16h: str) -> str:
+def tdea_2_ded(key_32h: HexString, block_16h: HexString) -> HexString:
     """tdea_2_ded: Triple DES decryption algorithm
     """
-    # cleaning inputs
-    key_32h = _clean_key(key_32h, 32)
-    block_16h = _clean_block(block_16h, 16)
+    # checking inputs
+    if key_32h.byte_length != 16:
+        raise ValueError(
+            F"Expected 16 bytes, received {key_32h.byte_length}: {key_32h}")
+    if block_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {block_16h.byte_length}: {block_16h}")
 
     # DES decryption with key #1
 
     # converting the input from hexadecimal string to bit string
-    block_64 = _hstr.to_bitstr(block_16h)
-    key_128 = _hstr.to_bitstr(key_32h)
+    key_128 = key_32h.bit_string
     key_64 = key_128[0:64]
+    block_64 = block_16h.bit_string
 
     # pre-computing the 16 round keys
     roundkeys1 = _roundkeys(key_64)
@@ -236,144 +263,188 @@ def tdea_2_ded(key_32h: str, block_16h: str) -> str:
 
     # applying the inversed initial permutation
     block_64 = _str.perm(R_32 + L_32, _IPINV)
+    assert len(block_64) == 64
 
-    return _bitstr.to_hstr(block_64)
+    return HexString(F"{int(block_64, 2):016X}")
 
 
-def tdea_2_ede_ecb(key_32h: str, block_16h_n: str) -> str:
+def tdea_2_ede_ecb(key_32h: HexString, block_16h_n: HexString) -> HexString:
     """tdea_2_ede_ecb: Triple DES encryption algorithm in ECB mnode
     """
-    # cleaning inputs
-    key_32h = _clean_key(key_32h, 32)
-    block_16h_n = _clean_n_blocks(block_16h_n, 16)
+    # checking inputs
+    if key_32h.byte_length != 16:
+        raise ValueError(
+            F"Expected 16 bytes, received {key_32h.byte_length}: {key_32h}")
+    if (block_16h_n.byte_length % 8) != 0:
+        raise ValueError(
+            F"Expected blocks of 8 bytes, received {block_16h_n.byte_length}: {block_16h_n}")
 
-    return modes.ecb_encryption(tdea_2_ede, key_32h, block_16h_n)
+    return modes.ecb_encryption(tdea_2_ede, key_32h, block_16h_n.blocks(8))
 
 
-def tdea_2_ded_ecb(key_32h: str, block_16h_n: str) -> str:
+def tdea_2_ded_ecb(key_32h: HexString, block_16h_n: HexString) -> HexString:
     """tdea_2_ded_ecb: Triple DES decryption algorithm in ECB mode
     """
-    # cleaning inputs
-    key_32h = _clean_key(key_32h, 32)
-    block_16h_n = _clean_n_blocks(block_16h_n, 16)
+    # checking inputs
+    if key_32h.byte_length != 16:
+        raise ValueError(
+            F"Expected 16 bytes, received {key_32h.byte_length}: {key_32h}")
+    if (block_16h_n.byte_length % 8) != 0:
+        raise ValueError(
+            F"Expected blocks of 8 bytes, received {block_16h_n.byte_length}: {block_16h_n}")
 
-    return modes.ecb_decryption(tdea_2_ded, key_32h, block_16h_n)
+    return modes.ecb_decryption(tdea_2_ded, key_32h, block_16h_n.blocks(8))
 
 
-def tdea_2_ede_cbc(key_32h: str, block_16h_n: str, iv_16h: str) -> str:
+def tdea_2_ede_cbc(key_32h: HexString, block_16h_n: HexString, iv_16h: HexString) -> HexString:
     """tdea_2_ede_cbc: Triple DES encryption algorithm in CBC mnode
     """
-    # cleaning inputs
-    key_32h = _clean_key(key_32h, 32)
-    block_16h_n = _clean_n_blocks(block_16h_n, 16)
-    iv_16h = _clean_block(iv_16h, 16)
+    # checking inputs
+    if key_32h.byte_length != 16:
+        raise ValueError(
+            F"Expected 16 bytes, received {key_32h.byte_length}: {key_32h}")
+    if (block_16h_n.byte_length % 8) != 0:
+        raise ValueError(
+            F"Expected blocks of 8 bytes, received {block_16h_n.byte_length}: {block_16h_n}")
+    if iv_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {iv_16h.byte_length}: {iv_16h}")
 
-    return modes.cbc_encryption(tdea_2_ede, key_32h, block_16h_n, iv_16h)
+    return modes.cbc_encryption(tdea_2_ede, key_32h, block_16h_n.blocks(8), iv_16h)
 
 
-def tdea_2_ded_cbc(key_32h: str, block_16h_n: str, iv_16h: str) -> str:
+def tdea_2_ded_cbc(key_32h: HexString, block_16h_n: HexString, iv_16h: HexString) -> HexString:
     """tdea_2_ded_cbc: Triple DES decryption algorithm in CBC mnode
     """
-    # cleaning inputs
-    key_32h = _clean_key(key_32h, 32)
-    block_16h_n = _clean_n_blocks(block_16h_n, 16)
-    iv_16h = _clean_block(iv_16h, 16)
+    # checking inputs
+    if key_32h.byte_length != 16:
+        raise ValueError(
+            F"Expected 16 bytes, received {key_32h.byte_length}: {key_32h}")
+    if (block_16h_n.byte_length % 8) != 0:
+        raise ValueError(
+            F"Expected blocks of 8 bytes, received {block_16h_n.byte_length}: {block_16h_n}")
+    if iv_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {iv_16h.byte_length}: {iv_16h}")
 
-    return modes.cbc_decryption(tdea_2_ded, key_32h, block_16h_n, iv_16h)
+    return modes.cbc_decryption(tdea_2_ded, key_32h, block_16h_n.blocks(8), iv_16h)
 
 
-def encrypt(key_h: str, block_16h: str) -> str:
+def encrypt(key_h: HexString, block_16h: HexString) -> HexString:
     """encrypt(): Single or triple-DES encryption
     """
-    key_h = _hstr.clean(key_h, 'encrypt()', 'key_h')
-    block_16h = _hstr.clean(block_16h, 'encrypt()', 'block_16h')
+    match key_h.byte_length:
+        case 16:
+            return dea_e(key_h, block_16h)
 
-    if len(key_h) == 16:
-        return dea_e(key_h, block_16h)
+        case 32:
+            return tdea_2_ede(key_h, block_16h)
 
-    if len(key_h) == 32:
-        return tdea_2_ede(key_h, block_16h)
-
-    if len(key_h) == 48:
-        return ''
+        case _:
+            raise ValueError(F"Key length not supported: {key_h.byte_length}")
 
 
-def decrypt(key_h: str, block_16h: str) -> str:
+def decrypt(key_h: HexString, block_16h: HexString) -> HexString:
     """decrypt(): Single or triple-DES decryption
     """
-    key_h = _hstr.clean(key_h, 'decrypt()', 'key_h')
-    block_16h = _hstr.clean(block_16h, 'decrypt()', 'block_16h')
+    match key_h.byte_length:
+        case 16:
+            return dea_d(key_h, block_16h)
 
-    if len(key_h) == 16:
-        return dea_d(key_h, block_16h)
+        case 32:
+            return tdea_2_ded(key_h, block_16h)
 
-    if len(key_h) == 32:
-        return tdea_2_ded(key_h, block_16h)
-
-    if len(key_h) == 48:
-        return ''
+        case _:
+            raise ValueError(F"Key length not supported: {key_h.byte_length}")
 
 
-def kcv(key_h: str, len = 3) -> str:
-    """kcv(): Key Check Value
+def key_check_value(key_h: HexString, len=3) -> HexString:
+    """key_check_value(): Key Check Value
     """
-    return encrypt(key_h, '00' * 8)[0:2*len]
+    return encrypt(key_h, HexString('00' * 8))[0:2*len]
 
-def mac_1_e(key_h: str, hstr: str):
+
+def mac_1_e(key_16h: HexString, block_16h_n: HexString) -> HexString:
     """mac_1_e(): single DES MAC generation
     """
-    key_h = _hstr.clean(key_h)
-    hstr = _hstr.clean(hstr)
-    temp = '0' * 16
-    for i in range(len(hstr)//16):
-        block = hstr[i*16:i*16+16]
-        temp = dea_e(key_h, _hstr.xor(temp, block))
+    # checking inputs
+    if key_16h.byte_length != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {key_16h.byte_length}: {key_16h}")
+    if (block_16h_n.byte_length % 8) != 0:
+        raise ValueError(
+            F"Expected blocks of 8 bytes, received {block_16h_n.byte_length}: {block_16h_n}")
+
+    temp = HexString('00' * 8)
+    for block in block_16h_n.blocks(8):
+        temp = dea_e(key_16h, temp ^ block)
+
     return temp
 
-def mac_2_ede(key_h: str, hstr: str):
+
+def mac_2_ede(key_32h: HexString, block_16h_n: HexString) -> HexString:
     """mac_2_ede(): double DES MAC generation
     """
-    key_h = _hstr.clean(key_h)
-    hstr = _hstr.clean(hstr)
-    key__key_1 = key_h[0:16]
-    key__key_2 = key_h[16:32]
-    
-    mac = mac_1_e(key__key_1, hstr)
+    # checking inputs
+    if key_32h.byte_length != 16:
+        raise ValueError(
+            F"Expected 16 bytes, received {key_32h.byte_length}: {key_32h}")
+    if (block_16h_n.byte_length % 8) != 0:
+        raise ValueError(
+            F"Expected blocks of 8 bytes, received {block_16h_n.byte_length}: {block_16h_n}")
+
+    key__key_1 = key_32h[0:16]
+    key__key_2 = key_32h[16:32]
+
+    mac = mac_1_e(key__key_1, block_16h_n)
     mac = dea_d(key__key_2, mac)
     mac = dea_e(key__key_1, mac)
-    
+
     return mac
 
-def adjust_parity(key_h: str):
+
+def adjust_parity(key_h: HexString) -> HexString:
     """
     """
-    key_h = _hstr.clean(key_h)
-    if len(key_h) % 16 != 0:
-        return ''
+    match key_h.byte_length:
+        case 16 | 32:
+            adjusted_parity = (_adjust_parity_byte(b) for b in key_h.blocks(1))
 
-    return ''.join([_adjust_parity_byte(key_h[2*i:2*i+2]) for i in range(len(key_h)//2)])
+            return HexString('').join(adjusted_parity)
 
-def combine_keys_xor(combined_kcv: str, components: list) -> str:
+        case _:
+            raise ValueError(F"Key length not supported: {key_h.byte_length}")
+
+
+def combine_keys_xor(kcv: HexString, components: list[tuple[HexString, HexString]]) -> HexString:
     """combine_keys_xor(): combine two or more key components with kcv checking
     """
-    combined_key = '00'
+    wrong_kcv = [(key_component, kcv) for key_component,
+                 kcv in components if key_check_value(key_component) != kcv]
+    if wrong_kcv:
+        component_value, component_kcv = wrong_kcv[0]
+        raise ValueError(
+            F"Wrong key check value: expected {key_check_value(component_value)}, received {component_kcv}")
 
-    for _value, _kcv in components:
-        if kcv(_value, len(_kcv)//2) != _kcv:
-            return None
-        else:
-            combined_key = _hstr.xor(combined_key,_value)
+    key_components_length = {
+        component_value.byte_length for component_value, _ in components}
+    if len(key_components_length) != 1:
+        raise ValueError(
+            F"Key components have different lengths: {', '.join([str(l) for l in key_components_length])}")
 
-    if kcv(combined_key, len(combined_kcv)//2) != combined_kcv:
-        return None
+    combined_key = reduce(HexString.__xor__, [
+                          component_value for component_value, _ in components])
+
+    if key_check_value(combined_key, len(kcv)) != kcv:
+        raise ValueError(
+            F"Wrong key check value: expected {kcv}, got {key_check_value(combined_key, len(kcv))}")
     else:
         return combined_key
+
 
 #
 # DEA inner functions
 #
-
-
 def _roundkeys(rootkey_64):
     roundkeys_16_48 = []
 
@@ -448,9 +519,9 @@ def _clean_n_blocks(block_lh_n, length, n=0):
 
     return block_lh_n
 
-def _adjust_parity_byte(byte_h: str):
-    byte_b = F"{int(byte_h, 16):08b}"
-    if byte_b.count('1') % 2 == 0:
-        return _hstr.xor(byte_h, '01')
+
+def _adjust_parity_byte(byte_h: HexString) -> HexString:
+    if byte_h.bit_string.count('1') % 2 == 0:
+        return byte_h ^ HexString('01')
     else:
         return byte_h

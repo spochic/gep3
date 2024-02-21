@@ -2,53 +2,53 @@
 """
 
 # Standard library imports
+from typing import Callable, Iterable
 
 # Third party imports
 
 # Local application imports
-import common.hstr as _hstr
+from common.binary import HexString
 
-def ecb_encryption(enc, key, block):
+
+def ecb_encryption(enc: Callable, key: HexString, blocks: Iterable[HexString]) -> HexString:
     """ecb_encryption()
     """
-    ciphertext = ''
-    for i in range(len(block)//16):
-        plaintext = block[i*16:(i+1)*16]
-        ciphertext += enc(key, plaintext)
+    ciphertext_blocks = [enc(key, plaintext_block)
+                         for plaintext_block in blocks]
+    ciphertext = HexString('').join(ciphertext_blocks)
 
     return ciphertext
 
-def ecb_decryption(dec, key, block):
+
+def ecb_decryption(dec: Callable[[HexString, HexString], HexString], key: HexString, blocks: Iterable[HexString]) -> HexString:
     """ecb_decryption()
     """
-    plaintext = ''
-    for i in range(len(block)//16):
-        ciphertext = block[i*16:(i+1)*16]
-        plaintext += dec(key, ciphertext)
+    plaintext_blocks = [dec(key, ciphertext_block)
+                        for ciphertext_block in blocks]
+    plaintext = HexString('').join(plaintext_blocks)
 
     return plaintext
 
-def cbc_encryption(enc, key, block, iv):
+
+def cbc_encryption(enc: Callable, key: HexString, blocks: Iterable[HexString], iv: HexString) -> HexString:
     """cbc_encryption()
     """
     tmp = iv
-    ciphertext = ''
-    for i in range(len(block)//16):
-        plaintext = block[i*16:(i+1)*16]
-        tmp = enc(key, _hstr.xor(tmp, plaintext))
+    ciphertext = HexString('')
+    for plaintext_block in blocks:
+        tmp = enc(key, tmp ^ plaintext_block)
         ciphertext += tmp
 
     return ciphertext
 
 
-def cbc_decryption(dec, key, block, iv):
+def cbc_decryption(dec: Callable, key: HexString, blocks: Iterable[HexString], iv: HexString) -> HexString:
     """cbc_decryption()
     """
     tmp = iv
-    plaintext = ''
-    for i in range(len(block)//16):
-        ciphertext = block[i*16:(i+1)*16]
-        plaintext += _hstr.xor(tmp, dec(key, ciphertext))
-        tmp = ciphertext
+    plaintext = HexString('')
+    for ciphertext_block in blocks:
+        plaintext += tmp ^ dec(key, ciphertext_block)
+        tmp = ciphertext_block
 
     return plaintext
