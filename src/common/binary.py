@@ -12,15 +12,15 @@ from typing import Callable, Self, Iterable
 
 
 # Helper functions
-_HEX_DIGITS = '0123456789abcdefABCDEF'
-_WHITESPACE = '_'
+__HEX_DIGITS = '0123456789abcdefABCDEF'
+__WHITESPACE = '_'
 
 
 def clean_hex_char(c: str) -> str:
     match c:
-        case c if c in _HEX_DIGITS:
+        case c if c in __HEX_DIGITS:
             return c
-        case c if c in _WHITESPACE:
+        case c if c in __WHITESPACE:
             return ''
         case _:
             raise TypeError(
