@@ -1,230 +1,259 @@
 """ber.py
 """
 # Standard library imports
+from enum import IntEnum
+from math import log2
 
 # Third party imports
 
 # Local application imports
 from common import hstr as _hstr
+from common.binary import HexString
+from common.parserc import *
 
-def parse(tlv_hstr: str, recursive=True):
-    """parse: Parses a TLV string into a (nested) list of (T,L,V) tuples and a remainder string
-    """
-    remainder = _hstr.clean(tlv_hstr)
-    output = []
-    while remainder != '':
-        # Ignoring 00 bytes before or after TLV objects
-        while remainder[0:2] == '00':
-            remainder = remainder[2:]
 
-        T, remainder = _decode_tag(remainder)
-        if T == '':
-            break
+# Enum definitions
+class TagClass(IntEnum):
+    Universal = 0x00
+    Application = 0x40
+    ContextSpecific = 0x80
+    Private = 0xC0
 
-        L, remainder = _decode_length(remainder)
-        if L == '':
-            break
 
-        V, remainder = _decode_value(L, remainder)
-        if V == '':
-            break
-
-        # Constructed object
-        if recursive and _is_tag_constructed(T):
-            V, _ = parse(V)
-
-        output.append((T, L, V))
-
-    return (output, remainder)
-
-def parse_to_dict(tlv_hstr: str):
-    """
-    """
-    tlv_object_list, remainder = parse(tlv_hstr, recursive=True)
-
-    return _tlv_object_list_to_dict(tlv_object_list)
-
-def parse_dol(tlv_hstr: str):
-    """parse_dol():
-    """
-    remainder = _hstr.clean(tlv_hstr)
-    output = []
-    while remainder != '':
-        # Ignoring 00 bytes before or after TLV objects
-        while remainder[0:2] == '00':
-            remainder = remainder[2:]
-
-        T, remainder = _decode_tag(remainder)
-        if T == '':
-            break
-
-        L, remainder = _decode_length(remainder)
-        if L == '':
-            break
-
-        output.append((T, L))
-
-    return (output, remainder)
-
-def find(tag, tlv_object):
-    """find: finds a specific tag in a list of objects
-    """
-    tag = _hstr.clean(tag)
-    if isinstance(tlv_object, tuple):
-        return _find_in_tuple(tag, tlv_object)
-    elif isinstance(tlv_object, list):
-        return _find_in_list(tag, tlv_object)
-    else:
-        return None
-
-def encode_length(data: str):
-    """encode_length(): encode length of 'data' per BER-TLV encoding rules
-    """
-    data = _hstr.clean(data, command_name='encode_length')
-    nr_nibbles = len(data)
-    nr_bytes = nr_nibbles//2
-
-    if nr_nibbles % 2 != 0:
-        # Error if input data is not an even number of nibbles (i.e., integer number of bytes)
-        return None
-    elif nr_bytes <= 127:
-        # Definite length, short format
-        return F"{nr_bytes:02X}"
-    else:
-        # Definite length, long format
-        l_value = F"{nr_bytes:X}"
-        if len(l_value) % 2 != 0:
-            # Left pad with 0 to have even number of nibbles
-            l_value = F"0{l_value}"
-        
-        l_header = F"{128+len(l_value)//2:02X}"
-
-        return F"{l_header}{l_value}"
-
-def encode(tag: str, data: str) -> str:
-    """encode(): encode tag and data into BER-TLV object
-    """
-    tag = _hstr.clean(tag)
-    data = _hstr.clean(data)
-
-    return F"{tag}{encode_length(data)}{data}"
+class TagConstruction(IntEnum):
+    Primitive = 0x00
+    Constructed = 0x20
 
 
 #
-# Helper functions (assume a clean 'hstr' as input)
+# Class definitions
 #
+# Tag: tag identifier
+class Tag(HexString):
+    def __init__(self, tag: str):
+        super().__init__(tag)
+        tag, remainder = T_fieldP.parse_partial(self.data)
+        if remainder != '':
+            raise ValueError(
+                F"Unknown bytes '{remainder}' after tag '{tag}'")
 
-def _find_in_tuple(tag, tlv_object):
-    T, _, V = tlv_object
-    if T == tag:
-        return tlv_object
-    elif isinstance(V, list):
-        return _find_in_list(tag, V)
-    else:
-        return None
+        tag_bytes = self.int_list
 
-def _find_in_list(tag, tlv_object_list):
-    for tlv_object in tlv_object_list:
-        r = _find_in_tuple(tag, tlv_object)
-        if r is not None:
-            return r
-    return None
-
-def _is_tag_constructed(tag: str) -> bool:
-    return _hstr.and_(tag[0:2], '20') == '20'
-
-def _decode_tag(data: str) -> tuple[str, str]:
-    # Input data must be at least 1 byte (i.e., 2 nibbles)
-    if len(data) < 2:
-        return ('', data)
-    
-    # Input data must be byte sequence (i.e., even number of nibbles)
-    if len(data) % 2 == 1:
-        return ('', data)
-
-    # Determining the length of the tag field.
-    if _hstr.and_(data[0:2], '1F') != '1F':
-        # The tag field is only one byte.
-        return (data[0:2], data[2:])
-    else:
-        # The tag field has more than one byte.
-        index = 2
-
-        # Looking for subsequent bytes (i.e., whether most significant bit of current byte is 1)
-        while _hstr.and_(data[index:index+2], '80') == '80':
-            index += 2
-        
-        return (data[0:index+2], data[index+2:])
-
-
-def _decode_length(data: str) -> tuple[str, str]:
-    # Input data must be at least 1 byte (i.e., 2 nibbles)
-    if len(data) < 2:
-        return ('', data)
-    
-    # Input data must be byte sequence (i.e., even number of nibbles)
-    if len(data) % 2 == 1:
-        return ('', data)
-
-    # Determining the length of the length field.
-    if _hstr.and_(data[0:2], '80') == '00':
-        # The length field is only one byte (definite, short)
-        return (data[0:2], data[2:])
-    elif data[0:2] in ['80', 'FF']:
-        # The length field is only one byte (indefinite or reserved)
-        return (data[0:2], data[2:])
-    else:
-        # The length field has more than one byte (definite, long)
-        nr_bytes = int(_hstr.and_(data[0:2], '7F'), 2)
-        return (data[0:2+2*nr_bytes], data[2+2*nr_bytes:])
-
-
-def _decode_value(length: str, data: str) -> tuple[str, str]:
-    # Input data must be at least 1 byte (i.e., 2 nibbles)
-    if len(data) < 2:
-        return ('', data)
-    
-    # Input data must be byte sequence (i.e., even number of nibbles)
-    if len(data) % 2 == 1:
-        return ('', data)
-
-    if len(length) == 2:
-        if length == '80':
-            # Length is of indefinite form i.e., data ends with 2 end-of-contents (0x00) octets
-            end_pos = data.find('0000')
-            if end_pos == -1:
-                # Could not find EOC octets
-                return ('', data)
+        if self.byte_length == 1:
+            if (tag_bytes[0] & 0x1F) == 31:
+                raise ValueError(
+                    F"Tag(): 1-byte tag should not have b5-b1 = 11111, received: {self}")
             else:
-                return (data[0:end_pos], data[end_pos+4:])
-        elif length == 'FF':
-            # Length value is 'reserved'
-            return ('', data)
-        else:
-            # Length is definite, short
-            nr_bytes = int(length, 16)
-            if len(data) < 2 * nr_bytes:
-                # The data field is too short
-                return ('', data)
+                self.__tag_number = tag_bytes[0] & 0x1F
+                return
+
+        if (tag_bytes[0] & 0x1F) != 31:
+            raise ValueError(
+                F"Tag(): first byte of multi-byte tags should have b5-b1 = 11111, received: {self}")
+
+        if self.byte_length > 2:
+            if any(map(lambda n: (n & 0x80) == 0x00, tag_bytes[1:-1])):
+                raise ValueError(
+                    F"Tag(): All but last tag byte should have b8 = 1, received: {self}")
+
+        if (tag_bytes[-1] & 0x80) != 0x00:
+            raise ValueError(
+                F"Tag(): Last tag byte should have b8 = 0, received {self}")
+
+        __subsequent_bytes = map(lambda n: n & 0x7F, tag_bytes[2:])
+        __tag_number = tag_bytes[1] & 0x7F
+        for b in __subsequent_bytes:
+            __tag_number = __tag_number << 7
+            __tag_number += b
+
+        self.__tag_number = __tag_number
+        return
+
+    @property
+    def class_(self) -> TagClass:
+        return TagClass(self.int_list[0] & 0xC0)
+
+    @property
+    def construction(self) -> TagConstruction:
+        return TagConstruction(self.int_list[0] & 0x20)
+
+    @property
+    def number(self) -> int:
+        return self.__tag_number
+
+
+def create_tag(tag_class: TagClass, tag_construction: TagConstruction, tag_number: int) -> Tag:
+    """create_tag(): create a Tag object based on individual fields
+    """
+    match tag_number:
+        case number if number < 0:
+            raise ValueError(
+                F"create_tag(): Tag number should be positive, received: {tag_number}")
+
+        case number if number < 31:
+            tag = [tag_class+tag_construction+tag_number]
+
+        case number if number < 128:
+            tag = [tag_class+tag_construction+31, tag_number]
+
+        case _:
+            tag = [tag_class+tag_construction+31]
+
+            subsequent_bytes = []
+            while tag_number > 0:
+                subsequent_bytes.append(128+tag_number % 128)
+                tag_number //= 128
+
+            subsequent_bytes.reverse()
+            subsequent_bytes[-1] &= 0x7F
+            tag.extend(subsequent_bytes)
+
+    return Tag(''.join([F"{b:02X}" for b in tag]))
+
+
+# Length: length encoding
+class Length(HexString):
+    def __init__(self, length: str):
+        super().__init__(length)
+        length, remainder = L_fieldP.parse_partial(self.data)
+        if remainder != '':
+            raise ValueError(
+                F"Unknown bytes '{remainder}' after length '{length}'")
+
+        length_bytes = self.bytes
+
+        if len(length_bytes) == 1:
+            if (length_bytes[0] & 0x80) == 0:
+                self.__length = length_bytes[0]
             else:
-                return (data[0:2*nr_bytes], data[2*nr_bytes:])
-    else:
-        # Length is definite, long
-        nr_bytes = int(length[2:], 16)
-        if len(data) < 2 * nr_bytes:
-            # The data field is too short
-            return ('', data)
+                raise ValueError(
+                    F"Single-byte length should have b8 = 0, received: {self}")
+        elif len(length_bytes[1:]) == length_bytes[0] & 0x7F:
+            self.__length = int.from_bytes(length_bytes[1:], byteorder='big')
         else:
-            return (data[0:2*nr_bytes], data[2*nr_bytes:])
+            raise ValueError(
+                F"Length should be {(length_bytes[0] & 0x7F) + 1} bytes, received: {self}")
 
-def _tlv_object_list_to_dict(tlv_object_list):
-    tags_to_ignore = ['6F', '70', '77', 'A5']
-    tlv_object_dict = {}
+    @property
+    def value(self) -> int:
+        return self.__length
 
-    for (T, L, V) in tlv_object_list:
-        if T not in tags_to_ignore:
-            tlv_object_dict[T] = V
-        if isinstance(V, list):
-            tlv_object_dict.update(_tlv_object_list_to_dict(V))
-    
-    return tlv_object_dict
+
+def create_length(value: HexString) -> Length:
+    match value.byte_length:
+        case l if l < 128:
+            return Length(F'{l:02X}')
+
+        case l if log2(l) < 1017:
+            nr_bits = value.byte_length.bit_length()
+            if nr_bits % 8 == 0:
+                nr_bytes = nr_bits//8
+            else:
+                nr_bytes = nr_bits//8 + 1
+            return Length(F"{128+nr_bytes:02X}" + format(value.byte_length, F"0{nr_bytes*2}X"))
+
+
+# TagLengthValue: TLV encoding
+class TagLengthValue(HexString):
+    def __init__(self, tlv: str):
+        super().__init__(tlv)
+        tlv, remainder = TagLengthValueP.parse_partial(self.data)
+        if remainder != '':
+            raise ValueError(
+                F"Unknown bytes '{remainder}' after TLV '{tlv}'")
+
+        tag, length, value = tlv
+        self.__tag = Tag(tag)
+        self.__length = Length(length)
+        self.__value = HexString(value)
+
+    @property
+    def tag(self) -> Tag:
+        return self.__tag
+
+    @property
+    def length(self) -> Length:
+        return self.__length
+
+    @property
+    def value(self) -> HexString:
+        return self.__value
+
+
+# class TagLength():
+#     def __init__(self, tl: str):
+#         pass
+
+
+# class DataObjectList():
+#     def __init__(self, dol: str):
+#         pass
+
+
+#
+# Parser combinators
+#
+# Tag field parsers
+__T_multi_byte_start = joint(one_of('13579bBdDfF'), one_of('fF'))
+__T_multi_byte_inner = joint(one_of('89aAbBcCdDeEfF'), nibble)
+__T_multi_byte_last = joint(one_of('01234567'), nibble)
+__T_single_byte = exclude(byte, __T_multi_byte_start)
+
+
+@generate
+def __T_multi_byte():
+    """Parses a multi-byte Tag Field.
+    """
+    start_tag = yield __T_multi_byte_start
+    inner_tags = yield many(__T_multi_byte_inner)
+    last_tag = yield __T_multi_byte_last
+
+    return start_tag + inner_tags + last_tag
+
+
+T_fieldP = __T_single_byte | __T_multi_byte
+
+
+# Length Field parser
+__L_single_byte = joint(one_of('01234567'), nibble)
+__L_multi_byte_start = joint(one_of('89aAbBcCdDeEfF'), nibble)
+
+
+@generate
+def __L_multi_byte():
+    start_length = yield __L_multi_byte_start
+    nr_bytes = int(start_length, 16) - 0x80
+    subsequent_length = yield count(byte, nr_bytes)
+
+    return start_length + subsequent_length
+
+
+L_fieldP = __L_single_byte | __L_multi_byte
+
+
+# TLV parser
+@generate
+def TagLengthValueP():
+    # ignore leading 00
+    _ = yield many(null)
+
+    tag = yield T_fieldP
+    length = yield L_fieldP
+    value = yield count(byte, Length(length).value)
+
+    # ignore trailing 00
+    _ = yield many(null)
+
+    return tag, length, value
+
+
+# Old definitions
+# def parse_to_dict(tlv_hstr: str):
+#     pass
+
+
+# def parse_dol(tlv_hstr: str):
+#     pass
+
+# def find(tag, tlv_object):
+#     pass
