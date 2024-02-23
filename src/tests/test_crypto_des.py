@@ -1,11 +1,11 @@
-"""test_des.py
+"""test_crypto_des.py
 """
 
 # Standard library imports
-import unittest as _unittest
+import unittest
 
 # Local application imports
-from crypto.des import *
+from crypto.des import dea_e, dea_d, dea_ede_cbc, tdea_2_ede, tdea_2_ded, tdea_2_ede_ecb, tdea_2_ded_ecb, tdea_2_ede_cbc, tdea_2_ded_cbc, adjust_parity
 from common.binary import HexString
 
 
@@ -37,7 +37,7 @@ fortyfour16 = HexString('44' * 16)
 #
 # Unit tests
 #
-class TestMethods(_unittest.TestCase):
+class TestMethods(unittest.TestCase):
     """Unit tests for 'des' module
     """
 
@@ -48,6 +48,7 @@ class TestMethods(_unittest.TestCase):
                          'D5D44FF720683D0D')
         with self.assertRaises(ValueError):
             dea_e(key8_0_to_F, zeroes7)
+        with self.assertRaises(ValueError):
             dea_e(key4_0_to_7, zeroes8)
 
     def test_dea_d(self):
@@ -63,6 +64,7 @@ class TestMethods(_unittest.TestCase):
                          'F31C939892FEFC8F14DBA3B2C7BAF0A7')
         with self.assertRaises(ValueError):
             dea_ede_cbc(key8_0_to_F, zeroes15, zeroes8)
+        with self.assertRaises(ValueError):
             dea_ede_cbc(key8_0_to_F, zeroes16, zeroes7)
 
     def test_tdea_2_ede(self):
@@ -100,6 +102,7 @@ class TestMethods(_unittest.TestCase):
                          '847CA792BFA6FD4C9154099C397A0ABA')
         with self.assertRaises(ValueError):
             tdea_2_ede_cbc(key16_0_to_F_to_0, zeroes15, zeroes8)
+        with self.assertRaises(ValueError):
             tdea_2_ede_cbc(key16_0_to_F_to_0, zeroes16, zeroes7)
 
     def test_tdea_2_ded_cbc(self):
@@ -109,6 +112,7 @@ class TestMethods(_unittest.TestCase):
                          '3E1916A2DE994A3BC1E6E95D2166B5C4')
         with self.assertRaises(ValueError):
             tdea_2_ded_cbc(key16_0_to_F_to_0, zeroes15, zeroes8)
+        with self.assertRaises(ValueError):
             tdea_2_ded_cbc(key16_0_to_F_to_0, zeroes16, zeroes7)
 
     def test_adjust_parity(self):
@@ -118,4 +122,4 @@ class TestMethods(_unittest.TestCase):
 
 
 if __name__ == '__main__':
-    _unittest.main()
+    unittest.main()
