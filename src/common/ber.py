@@ -7,9 +7,9 @@ from math import log2
 # Third party imports
 
 # Local application imports
-from common import hstr as _hstr
 from common.binary import HexString
-from common.parserc import *
+from common import parserc
+from common.parserc import generate
 
 
 # Enum definitions
@@ -101,7 +101,7 @@ def create_tag(tag_class: TagClass, tag_construction: TagConstruction, tag_numbe
 
             subsequent_bytes = []
             while tag_number > 0:
-                subsequent_bytes.append(128+tag_number % 128)
+                subsequent_bytes.append(128+(tag_number % 128))
                 tag_number //= 128
 
             subsequent_bytes.reverse()
@@ -194,10 +194,14 @@ class TagLengthValue(HexString):
 # Parser combinators
 #
 # Tag field parsers
-__T_multi_byte_start = joint(one_of('13579bBdDfF'), one_of('fF'))
-__T_multi_byte_inner = joint(one_of('89aAbBcCdDeEfF'), nibble)
-__T_multi_byte_last = joint(one_of('01234567'), nibble)
-__T_single_byte = exclude(byte, __T_multi_byte_start)
+__T_multi_byte_start = parserc.joint(parserc.one_of('13579bBdDfF'),
+                                     parserc.one_of('fF'))
+__T_multi_byte_inner = parserc.joint(parserc.one_of('89aAbBcCdDeEfF'),
+                                     parserc.nibble)
+__T_multi_byte_last = parserc.joint(parserc.one_of('01234567'),
+                                    parserc.nibble)
+__T_single_byte = parserc.exclude(parserc.byte,
+                                  __T_multi_byte_start)
 
 
 @generate
@@ -205,7 +209,8 @@ def __T_multi_byte():
     """Parses a multi-byte Tag Field.
     """
     start_tag = yield __T_multi_byte_start
-    inner_tags = yield many(__T_multi_byte_inner)
+    inner_tags = yield parserc.many(__T_multi_byte_inner)
+    inner_tags = ''.join(inner_tags)
     last_tag = yield __T_multi_byte_last
 
     return start_tag + inner_tags + last_tag
@@ -215,15 +220,17 @@ T_fieldP = __T_single_byte | __T_multi_byte
 
 
 # Length Field parser
-__L_single_byte = joint(one_of('01234567'), nibble)
-__L_multi_byte_start = joint(one_of('89aAbBcCdDeEfF'), nibble)
+__L_single_byte = parserc.joint(parserc.one_of('01234567'), parserc.nibble)
+__L_multi_byte_start = parserc.joint(
+    parserc.one_of('89aAbBcCdDeEfF'), parserc.nibble)
 
 
 @generate
 def __L_multi_byte():
     start_length = yield __L_multi_byte_start
     nr_bytes = int(start_length, 16) - 0x80
-    subsequent_length = yield count(byte, nr_bytes)
+    subsequent_length = yield parserc.count(parserc.byte, nr_bytes)
+    subsequent_length = ''.join(subsequent_length)
 
     return start_length + subsequent_length
 
@@ -235,14 +242,15 @@ L_fieldP = __L_single_byte | __L_multi_byte
 @generate
 def TagLengthValueP():
     # ignore leading 00
-    _ = yield many(null)
+    _ = yield parserc.many(parserc.null)
 
     tag = yield T_fieldP
     length = yield L_fieldP
-    value = yield count(byte, Length(length).value)
+    value = yield parserc.count(parserc.byte, Length(length).value)
+    value = ''.join(value)
 
     # ignore trailing 00
-    _ = yield many(null)
+    _ = yield parserc.many(parserc.null)
 
     return tag, length, value
 

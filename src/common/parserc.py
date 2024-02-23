@@ -18,12 +18,12 @@ def flatten(iter):
 
 
 # Overloaded parsec functions
-def count(p, n):
-    return parsec.parsecmap(parsec.count(p, n), flatten)
+# def count(p, n):
+#     return parsec.parsecmap(parsec.count(p, n), flatten)
 
 
-def many(p):
-    return parsec.parsecmap(parsec.many(p), flatten)
+# def many(p):
+#     return parsec.parsecmap(parsec.many(p), flatten)
 
 
 def joint(*p):
