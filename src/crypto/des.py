@@ -2,17 +2,13 @@
 """
 
 # Standard library imports
-import math as _math
 from functools import reduce
 from operator import __xor__
 
 # Third party imports
 
 # Local application imports
-from common.binary import HexString
-import common.hstr as _hstr
-import common.bitstr as _bitstr
-import common.str as _str
+from common.binary import HexString, BitString
 import crypto.modes as modes
 
 _IP = [58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4, 62, 54, 46, 38, 30, 22, 14, 6, 64, 56, 48, 40, 32, 24, 16,
@@ -64,19 +60,20 @@ def dea_e(key_16h: HexString, block_16h: HexString) -> HexString:
 
     # computing the 16 rounds
     # applying initial permutation
-    block_64 = _str.perm(block_64, _IP)
+    # block_64 = _str.perm(str(block_64), _IP)
+    block_64 = block_64.permute(_IP)
     # working on block halves of 32 bits
     L_32 = block_64[0:32]
     R_32 = block_64[32:64]
 
-    for i in range(16):
-        [L_32, R_32] = _round(roundkeys[i], L_32, R_32)
+    for roundkey in roundkeys:
+        (L_32, R_32) = _round(roundkey, L_32, R_32)
 
     # applying the inversed initial permutation
-    block_64 = _str.perm(R_32 + L_32, _IPINV)
+    block_64 = (R_32 + L_32).permute(_IPINV)
     assert len(block_64) == 64
 
-    return HexString(F"{int(block_64, 2):016X}")
+    return block_64.hex_string
 
 
 def dea_d(key_16h: HexString, block_16h: HexString) -> HexString:
@@ -96,23 +93,22 @@ def dea_d(key_16h: HexString, block_16h: HexString) -> HexString:
 
     # pre-computing the 16 round keys
     roundkeys = _roundkeys(key_64)
-    roundkeys.reverse()
 
     # computing the 16 rounds
     # applying initial permutation
-    block_64 = _str.perm(block_64, _IP)
+    block_64 = block_64.permute(_IP)
     # working on block halves of 32 bits
     L_32 = block_64[0:32]
     R_32 = block_64[32:64]
 
-    for i in range(16):
-        [L_32, R_32] = _round(roundkeys[i], L_32, R_32)
+    for roundkey in reversed(roundkeys):
+        (L_32, R_32) = _round(roundkey, L_32, R_32)
 
     # applying the inversed initial permutation
-    block_64 = _str.perm(R_32 + L_32, _IPINV)
+    block_64 = (R_32 + L_32).permute(_IPINV)
     assert len(block_64) == 64
 
-    return HexString(F"{int(block_64, 2):016X}")
+    return block_64.hex_string
 
 
 def dea_ede_cbc(key_16h: HexString, block_16h_n: HexString, iv_16h: HexString) -> HexString:
@@ -155,13 +151,13 @@ def tdea_2_ede(key_32h: HexString, block_16h: HexString) -> HexString:
 
     # computing the 16 rounds
     # applying initial permutation
-    block_64 = _str.perm(block_64, _IP)
+    block_64 = block_64.permute(_IP)
     # working on block halves of 32 bits
     L_32 = block_64[0:32]
     R_32 = block_64[32:64]
 
-    for i in range(16):
-        [L_32, R_32] = _round(roundkeys1[i], L_32, R_32)
+    for roundkey1 in roundkeys1:
+        (L_32, R_32) = _round(roundkey1, L_32, R_32)
 
     block_64 = R_32 + L_32
 
@@ -171,15 +167,14 @@ def tdea_2_ede(key_32h: HexString, block_16h: HexString) -> HexString:
 
     # pre-computing the 16 round keys
     roundkeys2 = _roundkeys(key_64)
-    roundkeys2.reverse()
 
     # computing the 16 rounds
     # working on block halves of 32 bits
     L_32 = block_64[0:32]
     R_32 = block_64[32:64]
 
-    for i in range(16):
-        [L_32, R_32] = _round(roundkeys2[i], L_32, R_32)
+    for roundkey2 in reversed(roundkeys2):
+        (L_32, R_32) = _round(roundkey2, L_32, R_32)
 
     block_64 = R_32 + L_32
 
@@ -190,14 +185,14 @@ def tdea_2_ede(key_32h: HexString, block_16h: HexString) -> HexString:
     L_32 = block_64[0:32]
     R_32 = block_64[32:64]
 
-    for i in range(16):
-        [L_32, R_32] = _round(roundkeys1[i], L_32, R_32)
+    for roundkey1 in roundkeys1:
+        (L_32, R_32) = _round(roundkey1, L_32, R_32)
 
     # applying the inversed initial permutation
-    block_64 = _str.perm(R_32 + L_32, _IPINV)
+    block_64 = (R_32 + L_32).permute(_IPINV)
     assert len(block_64) == 64
 
-    return HexString(F"{int(block_64, 2):016X}")
+    return block_64.hex_string
 
 
 def tdea_2_ded(key_32h: HexString, block_16h: HexString) -> HexString:
@@ -220,17 +215,16 @@ def tdea_2_ded(key_32h: HexString, block_16h: HexString) -> HexString:
 
     # pre-computing the 16 round keys
     roundkeys1 = _roundkeys(key_64)
-    roundkeys1.reverse()
 
     # computing the 16 rounds
     # applying initial permutation
-    block_64 = _str.perm(block_64, _IP)
+    block_64 = block_64.permute(_IP)
     # working on block halves of 32 bits
     L_32 = block_64[0:32]
     R_32 = block_64[32:64]
 
-    for i in range(16):
-        [L_32, R_32] = _round(roundkeys1[i], L_32, R_32)
+    for roundkey1 in reversed(roundkeys1):
+        (L_32, R_32) = _round(roundkey1, L_32, R_32)
 
     block_64 = R_32 + L_32
 
@@ -246,8 +240,8 @@ def tdea_2_ded(key_32h: HexString, block_16h: HexString) -> HexString:
     L_32 = block_64[0:32]
     R_32 = block_64[32:64]
 
-    for i in range(16):
-        [L_32, R_32] = _round(roundkeys2[i], L_32, R_32)
+    for roundkey2 in roundkeys2:
+        (L_32, R_32) = _round(roundkey2, L_32, R_32)
 
     block_64 = R_32 + L_32
 
@@ -258,14 +252,14 @@ def tdea_2_ded(key_32h: HexString, block_16h: HexString) -> HexString:
     L_32 = block_64[0:32]
     R_32 = block_64[32:64]
 
-    for i in range(16):
-        [L_32, R_32] = _round(roundkeys1[i], L_32, R_32)
+    for roundkey1 in reversed(roundkeys1):
+        (L_32, R_32) = _round(roundkey1, L_32, R_32)
 
     # applying the inversed initial permutation
-    block_64 = _str.perm(R_32 + L_32, _IPINV)
+    block_64 = (R_32 + L_32).permute(_IPINV)
     assert len(block_64) == 64
 
-    return HexString(F"{int(block_64, 2):016X}")
+    return block_64.hex_string
 
 
 def tdea_2_ede_ecb(key_32h: HexString, block_16h_n: HexString) -> HexString:
@@ -445,11 +439,11 @@ def combine_keys_xor(kcv: HexString, components: list[tuple[HexString, HexString
 #
 # DEA inner functions
 #
-def _roundkeys(rootkey_64):
-    roundkeys_16_48 = []
+def _roundkeys(rootkey_64: BitString) -> list[BitString]:
+    roundkeys_16_48: list[BitString] = []
 
     # applying permutation _PC1
-    T_58 = _str.perm(rootkey_64, _PC1)
+    T_58 = rootkey_64.permute(_PC1)
     # working on key halves of 56 bits
     C_28 = T_58[0:28]
     D_28 = T_58[28:56]
@@ -457,69 +451,38 @@ def _roundkeys(rootkey_64):
     # computing the 16 roundkeys
     for i in range(16):
         # applying a left circular shift to both key halves
-        C_28 = _str.lcs(C_28, _shifts[i])
-        D_28 = _str.lcs(D_28, _shifts[i])
+        C_28 = C_28.left_circular_shit(_shifts[i])
+        D_28 = D_28.left_circular_shit(_shifts[i])
         # applying the permutation _PC2
-        roundkeys_16_48.append(_str.perm(C_28 + D_28, _PC2))
+        roundkeys_16_48.append((C_28 + D_28).permute(_PC2))
 
     return roundkeys_16_48
 
 
-def _round(roundkey_48, L_32, R_32):
-    return [R_32, _bitstr.xor(L_32, _f(roundkey_48, R_32))]
+def _round(roundkey_48: BitString, L_32: BitString, R_32: BitString) -> tuple[BitString, BitString]:
+    return (R_32, L_32 ^ _f(roundkey_48, R_32))
 
 
-def _f(roundkey_48, block_32):
+def _f(roundkey_48: BitString, block_32: BitString) -> BitString:
     # expanding the input block
-    block_48 = _str.exp(block_32, _E)
+    block_48 = block_32.expand(_E)
 
-    block_48 = _bitstr.xor(block_48, roundkey_48)
+    block_48 = block_48 ^ roundkey_48
 
     # substituting the 8 6-bit sub-blocks
-    block_32 = ''
+    block_32 = BitString('')
     for i in range(8):
-        block_32 = block_32 + _S[i][block_48[i*6:i*6+6]]
+        block_32 += _S[i][str(block_48[i*6:i*6+6])]
 
     # applying the permutation
-    block_32 = _str.perm(block_32, _P)
+    block_32 = block_32.permute(_P)
 
     return block_32
+
 
 #
 # helper functions
 #
-
-
-def _clean_key(key_lh, length):
-    key_lh = _hstr.clean(key_lh)
-    if len(key_lh) != length:
-        raise TypeError(F"Wrong key length: 0x{len(key_lh):X}h")
-
-    return key_lh
-
-
-def _clean_block(block_lh, length):
-    block_lh = _hstr.clean(block_lh)
-    if len(block_lh) != length:
-        raise TypeError(
-            F"Wrong block length: 0x{len(block_lh):X}h instead of 0x{length:02X}")
-
-    return block_lh
-
-
-def _clean_n_blocks(block_lh_n, length, n=0):
-    block_lh_n = _hstr.clean(block_lh_n)
-    if n == 0:
-        if len(block_lh_n) % length != 0:
-            raise TypeError(
-                F"Wrong number of blocks: 0x{_math.ceil(len(block_lh_n) / length):X}h")
-    else:
-        if len(block_lh_n) != length * n:
-            raise TypeError(F"Wrong block length: 0x{len(block_lh_n):X}h")
-
-    return block_lh_n
-
-
 def _adjust_parity_byte(byte_h: HexString) -> HexString:
     if byte_h.bit_string.count('1') % 2 == 0:
         return byte_h ^ HexString('01')
