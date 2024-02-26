@@ -3,8 +3,7 @@
 # Standard library imports
 
 # Third party imports
-import parsec
-from parsec import *
+from parsec import parsecmap, desc, regex, string, joint as __joint, generate, one_of, exclude, many, count
 
 # Local application imports
 
@@ -27,10 +26,10 @@ def flatten(iter):
 
 
 def joint(*p):
-    return parsec.parsecmap(parsec.joint(*p), flatten)
+    return parsecmap(__joint(*p), flatten)
 
 
 # Generic parsers
-nibble = parsec.desc(parsec.regex(r'[0-9a-zA-Z]'), 'nibble')
-byte = parsec.desc(parsec.regex(r'[0-9a-zA-Z]{2}'), 'byte')
-null = parsec.desc(parsec.string('00'), 'null')
+nibble = desc(regex(r'[0-9a-zA-Z]'), 'nibble')
+byte = desc(regex(r'[0-9a-zA-Z]{2}'), 'byte')
+null = desc(string('00'), 'null')
