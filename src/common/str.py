@@ -9,7 +9,8 @@ Generic functions working on strings
 
 # Local application imports
 
-def perm(str_in, permutation):
+
+def perm(str_in: str, permutation: list[int]) -> str:
     """perm():
     """
     str_out = ''
@@ -20,22 +21,23 @@ def perm(str_in, permutation):
     return str_out
 
 
-def exp(str_in, expansion):
+def exp(str_in: str, expansion: list[int]) -> str:
     """exp():
     """
     return perm(str_in, expansion)
 
 
-def lcs(str_in, shift):
+def lcs(str_in: str, shift: int) -> str:
     """lcs():
     """
     return str_in[shift:] + str_in[:shift]
 
 
-def to_ascii(str_in):
+def to_ascii(str_in: str) -> str:
     return ''.join([F"{ord(c):02X}" for c in str_in])
 
-def clean (str_in: str, keep_char = '', remove_char = '', command_name='()', str_name='') -> str:
+
+def clean(str_in: str, keep_char='', remove_char='', command_name='()', str_name='') -> str:
     """clean(str)
 
     - Removes '_' characters
