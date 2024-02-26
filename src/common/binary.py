@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import UserString
 import math
 import operator
-from typing import Callable, Self, Iterable
+from typing import Callable, Iterable
 
 # Third party imports
 
@@ -86,20 +86,20 @@ class HexString(UserString):
 
         return dstr1 + dstr2
 
-    def blocks(self, bytesize: int) -> Iterable[Self]:
+    def blocks(self, bytesize: int) -> Iterable[HexString]:
         nr_blocks = math.ceil(self.byte_length / bytesize)
         return (self[i*2*bytesize:(i+1)*2*bytesize] for i in range(nr_blocks))
 
-    def join(self, seq: Iterable[Self]):
+    def join(self, seq: Iterable[HexString]):
         return self + ''.join([hstr.data for hstr in seq])
 
-    def __or__(self, other: Self):
+    def __or__(self, other: HexString):
         return HexString(bitwise_operation(self.data, other.data, operator.__or__))
 
-    def __xor__(self, other: Self):
+    def __xor__(self, other: HexString):
         return HexString(bitwise_operation(self.data, other.data, operator.__xor__))
 
-    def __and__(self, other: Self):
+    def __and__(self, other: HexString):
         return HexString(bitwise_operation(self.data, other.data, operator.__and__))
 
     def __invert__(self):
@@ -132,21 +132,35 @@ class BitString(UserString):
     def int_list(self) -> list[int]:
         return HexString(self.data).int_list
 
-    def blocks(self, bitsize: int) -> Iterable[Self]:
+    def blocks(self, bitsize: int) -> Iterable[BitString]:
         nr_blocks = math.ceil(self.byte_length / bitsize)
         return (self[i*2*bitsize:(i+1)*2*bitsize] for i in range(nr_blocks))
 
-    def join(self, seq: Iterable[Self]):
+    def join(self, seq: Iterable[BitString]):
         return self + ''.join([bstr.data for bstr in seq])
 
-    def __or__(self, other: Self):
-        return HexString(bitwise_operation(self.data, other.data, operator.__or__))
+    def permute(self, permutation: list[int]) -> BitString:
+        str_out = BitString('')
 
-    def __xor__(self, other: Self):
-        return HexString(bitwise_operation(self.data, other.data, operator.__xor__))
+        for i in permutation:
+            str_out += self[i-1]
 
-    def __and__(self, other: Self):
-        return HexString(bitwise_operation(self.data, other.data, operator.__and__))
+        return str_out
 
-    def __invert__(self):
+    def expand(self, expansion: list[int]) -> BitString:
+        return self.permute(expansion)
+
+    def left_circular_shit(self, shift: int) -> BitString:
+        return self[shift:] + self[:shift]
+
+    def __or__(self, other: BitString) -> BitString:
+        return BitString(bitwise_operation(self.data, other.data, operator.__or__))
+
+    def __xor__(self, other: BitString) -> BitString:
+        return BitString(bitwise_operation(self.data, other.data, operator.__xor__))
+
+    def __and__(self, other: BitString) -> BitString:
+        return BitString(bitwise_operation(self.data, other.data, operator.__and__))
+
+    def __invert__(self) -> BitString:
         return self ^ BitString('1' * len(self))
