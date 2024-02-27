@@ -6,6 +6,8 @@ from collections import UserString
 import math
 import operator
 from typing import Callable, Iterable
+from functools import reduce
+from array import array
 
 # Third party imports
 
@@ -73,6 +75,10 @@ class HexString(UserString):
         return list(self.bytes)
 
     @property
+    def int_array(self) -> array:
+        return array('B', self.bytes)
+
+    @property
     def dscan_decimalize(self) -> str:
         """dscan_decimalize: double scan decimalization
         """
@@ -90,20 +96,63 @@ class HexString(UserString):
         nr_blocks = math.ceil(self.byte_length / bytesize)
         return (self[i*2*bytesize:(i+1)*2*bytesize] for i in range(nr_blocks))
 
-    def join(self, seq: Iterable[HexString]):
-        return self + ''.join([hstr.data for hstr in seq])
+    def join(self, seq: Iterable[HexString]) -> HexString:
+        return reduce(operator.__add__, seq)
 
-    def __or__(self, other: HexString):
+    def __or__(self, other: HexString) -> HexString:
         return HexString(bitwise_operation(self.data, other.data, operator.__or__))
 
-    def __xor__(self, other: HexString):
+    def __xor__(self, other: HexString) -> HexString:
         return HexString(bitwise_operation(self.data, other.data, operator.__xor__))
 
-    def __and__(self, other: HexString):
+    def __and__(self, other: HexString) -> HexString:
         return HexString(bitwise_operation(self.data, other.data, operator.__and__))
 
-    def __invert__(self):
+    def __invert__(self) -> HexString:
         return self ^ HexString('FF' * self.byte_length)
+
+
+# 'ByteString' class
+class ByteString(HexString):
+    def __init__(self, string: str):
+        super().__init__(string)
+        if len(self.data) % 2 != 0:
+            self.data = '0' + self.data
+
+    @property
+    def byte_length(self) -> int:
+        if len(self.data) % 2 == 0:
+            return len(self.data) // 2
+        else:
+            raise ValueError(F"{self.data} has an odd number of nibbles")
+
+    def blocks(self, bytesize: int) -> Iterable[ByteString]:
+        nr_blocks = math.ceil(self.byte_length / bytesize)
+        return (self[i*bytesize:(i+1)*bytesize] for i in range(nr_blocks))
+
+    def join(self, seq: Iterable[ByteString]) -> ByteString:
+        return reduce(operator.__add__, seq)
+
+    def __or__(self, other: ByteString) -> ByteString:
+        return ByteString(bitwise_operation(self.data, other.data, operator.__or__))
+
+    def __xor__(self, other: ByteString) -> ByteString:
+        return ByteString(bitwise_operation(self.data, other.data, operator.__xor__))
+
+    def __and__(self, other: ByteString) -> ByteString:
+        return ByteString(bitwise_operation(self.data, other.data, operator.__and__))
+
+    def __invert__(self) -> ByteString:
+        return self ^ ByteString('FF' * len(self))
+
+    def __getitem__(self, key) -> ByteString:
+        if isinstance(key, slice):
+            return ByteString(self.bytes[key].hex())
+        else:
+            return ByteString(F"{self.bytes[key]:02X}")
+
+    def __len__(self) -> int:
+        return len(self.data) // 2
 
 
 # 'BitString' class
@@ -129,6 +178,14 @@ class BitString(UserString):
                 F"{self.data} has a number of bit that is not a multiple of 4")
 
     @property
+    def byte_string(self) -> ByteString:
+        if len(self) % 8 == 0:
+            return ByteString(format(int(self.data, 2), F"0{len(self)//4}X"))
+        else:
+            raise ValueError(
+                F"{self.data} has a number of bit that is not a multiple of 4")
+
+    @property
     def int_list(self) -> list[int]:
         return HexString(self.data).int_list
 
@@ -136,8 +193,8 @@ class BitString(UserString):
         nr_blocks = math.ceil(self.byte_length / bitsize)
         return (self[i*2*bitsize:(i+1)*2*bitsize] for i in range(nr_blocks))
 
-    def join(self, seq: Iterable[BitString]):
-        return self + ''.join([bstr.data for bstr in seq])
+    def join(self, seq: Iterable[BitString]) -> BitString:
+        return reduce(operator.__add__, seq)
 
     def permute(self, permutation: list[int]) -> BitString:
         str_out = BitString('')
