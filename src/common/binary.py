@@ -4,10 +4,10 @@
 from __future__ import annotations
 from collections import UserString
 import math
-import operator
 from typing import Callable, Iterable
 from functools import reduce
 from array import array
+from operator import __add__, __xor__, __and__, __or__
 
 # Third party imports
 
@@ -48,7 +48,7 @@ def bitwise_operation(left: str, right: str, operator: Callable[[int, int], int]
 # 'HexString' class
 class HexString(UserString):
     def __init__(self, string: str):
-        value: str = ''.join(map(clean_hex_char, string))
+        value: str = reduce(__add__, map(clean_hex_char, string))
         super().__init__(value.upper())
 
     @property
@@ -97,16 +97,16 @@ class HexString(UserString):
         return (self[i*2*bytesize:(i+1)*2*bytesize] for i in range(nr_blocks))
 
     def join(self, seq: Iterable[HexString]) -> HexString:
-        return reduce(operator.__add__, seq)
+        return reduce(__add__, seq)
 
     def __or__(self, other: HexString) -> HexString:
-        return HexString(bitwise_operation(self.data, other.data, operator.__or__))
+        return HexString(bitwise_operation(self.data, other.data, __or__))
 
     def __xor__(self, other: HexString) -> HexString:
-        return HexString(bitwise_operation(self.data, other.data, operator.__xor__))
+        return HexString(bitwise_operation(self.data, other.data, __xor__))
 
     def __and__(self, other: HexString) -> HexString:
-        return HexString(bitwise_operation(self.data, other.data, operator.__and__))
+        return HexString(bitwise_operation(self.data, other.data, __and__))
 
     def __invert__(self) -> HexString:
         return self ^ HexString('FF' * self.byte_length)
@@ -131,16 +131,16 @@ class ByteString(HexString):
         return (self[i*bytesize:(i+1)*bytesize] for i in range(nr_blocks))
 
     def join(self, seq: Iterable[ByteString]) -> ByteString:
-        return reduce(operator.__add__, seq)
+        return reduce(__add__, seq)
 
     def __or__(self, other: ByteString) -> ByteString:
-        return ByteString(bitwise_operation(self.data, other.data, operator.__or__))
+        return ByteString(bitwise_operation(self.data, other.data, __or__))
 
     def __xor__(self, other: ByteString) -> ByteString:
-        return ByteString(bitwise_operation(self.data, other.data, operator.__xor__))
+        return ByteString(bitwise_operation(self.data, other.data, __xor__))
 
     def __and__(self, other: ByteString) -> ByteString:
-        return ByteString(bitwise_operation(self.data, other.data, operator.__and__))
+        return ByteString(bitwise_operation(self.data, other.data, __and__))
 
     def __invert__(self) -> ByteString:
         return self ^ ByteString('FF' * len(self))
@@ -194,7 +194,7 @@ class BitString(UserString):
         return (self[i*2*bitsize:(i+1)*2*bitsize] for i in range(nr_blocks))
 
     def join(self, seq: Iterable[BitString]) -> BitString:
-        return reduce(operator.__add__, seq)
+        return reduce(__add__, seq)
 
     def permute(self, permutation: list[int]) -> BitString:
         str_out = BitString('')
@@ -211,13 +211,13 @@ class BitString(UserString):
         return self[shift:] + self[:shift]
 
     def __or__(self, other: BitString) -> BitString:
-        return BitString(bitwise_operation(self.data, other.data, operator.__or__))
+        return BitString(bitwise_operation(self.data, other.data, __or__))
 
     def __xor__(self, other: BitString) -> BitString:
-        return BitString(bitwise_operation(self.data, other.data, operator.__xor__))
+        return BitString(bitwise_operation(self.data, other.data, __xor__))
 
     def __and__(self, other: BitString) -> BitString:
-        return BitString(bitwise_operation(self.data, other.data, operator.__and__))
+        return BitString(bitwise_operation(self.data, other.data, __and__))
 
     def __invert__(self) -> BitString:
         return self ^ BitString('1' * len(self))
