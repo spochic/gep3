@@ -3,52 +3,55 @@
 
 # Standard library imports
 from typing import Callable, Iterable
+from functools import reduce
+from operator import __add__
 
 # Third party imports
 
 # Local application imports
-from common.binary import HexString
+from common.binary import ByteString
 
 
-def ecb_encryption(enc: Callable, key: HexString, blocks: Iterable[HexString]) -> HexString:
+SymmetricCipher = Callable[[ByteString, ByteString], ByteString]
+
+
+def ecb_encryption(enc: SymmetricCipher, key: ByteString, blocks: Iterable[ByteString]) -> ByteString:
     """ecb_encryption()
     """
     ciphertext_blocks = [enc(key, plaintext_block)
                          for plaintext_block in blocks]
-    ciphertext = HexString('').join(ciphertext_blocks)
 
-    return ciphertext
+    return reduce(__add__, ciphertext_blocks)
 
 
-def ecb_decryption(dec: Callable[[HexString, HexString], HexString], key: HexString, blocks: Iterable[HexString]) -> HexString:
+def ecb_decryption(dec: SymmetricCipher, key: ByteString, blocks: Iterable[ByteString]) -> ByteString:
     """ecb_decryption()
     """
     plaintext_blocks = [dec(key, ciphertext_block)
                         for ciphertext_block in blocks]
-    plaintext = HexString('').join(plaintext_blocks)
 
-    return plaintext
+    return reduce(__add__, plaintext_blocks)
 
 
-def cbc_encryption(enc: Callable, key: HexString, blocks: Iterable[HexString], iv: HexString) -> HexString:
+def cbc_encryption(enc: SymmetricCipher, key: ByteString, blocks: Iterable[ByteString], iv: ByteString) -> ByteString:
     """cbc_encryption()
     """
     tmp = iv
-    ciphertext = HexString('')
+    ciphertext_blocks: list[ByteString] = []
     for plaintext_block in blocks:
         tmp = enc(key, tmp ^ plaintext_block)
-        ciphertext += tmp
+        ciphertext_blocks.append(tmp)
 
-    return ciphertext
+    return reduce(__add__, ciphertext_blocks)
 
 
-def cbc_decryption(dec: Callable, key: HexString, blocks: Iterable[HexString], iv: HexString) -> HexString:
+def cbc_decryption(dec: SymmetricCipher, key: ByteString, blocks: Iterable[ByteString], iv: ByteString) -> ByteString:
     """cbc_decryption()
     """
     tmp = iv
-    plaintext = HexString('')
+    plaintext_blocks: list[ByteString] = []
     for ciphertext_block in blocks:
-        plaintext += tmp ^ dec(key, ciphertext_block)
+        plaintext_blocks.append(tmp ^ dec(key, ciphertext_block))
         tmp = ciphertext_block
 
-    return plaintext
+    return reduce(__add__, plaintext_blocks)
