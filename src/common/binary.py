@@ -79,6 +79,10 @@ class HexString(UserString):
         return array('B', self.bytes)
 
     @property
+    def int(self) -> int:
+        return int.from_bytes(self.bytes)
+
+    @property
     def dscan_decimalize(self) -> str:
         """dscan_decimalize: double scan decimalization
         """
@@ -115,9 +119,10 @@ class HexString(UserString):
 # 'ByteString' class
 class ByteString(HexString):
     def __init__(self, string: str):
-        super().__init__(string)
-        if len(self.data) % 2 != 0:
-            self.data = '0' + self.data
+        if len(HexString(string)) % 2 != 0:
+            super().__init__('0' + string)
+        else:
+            super().__init__(string)
 
     @property
     def byte_length(self) -> int:
@@ -125,6 +130,10 @@ class ByteString(HexString):
             return len(self.data) // 2
         else:
             raise ValueError(F"{self.data} has an odd number of nibbles")
+
+    @property
+    def bit_length(self) -> int:
+        return len(self) * 8
 
     def blocks(self, bytesize: int) -> Iterable[ByteString]:
         nr_blocks = math.ceil(self.byte_length / bytesize)
