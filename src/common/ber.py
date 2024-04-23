@@ -8,7 +8,7 @@ from math import log2
 
 
 # Local application imports
-from common.binary import HexString
+from common.binary import HexString, ByteString
 from common.parserc import null, byte, nibble, joint, one_of, exclude, generate, many, count
 
 
@@ -29,7 +29,7 @@ class TagConstruction(IntEnum):
 # Class definitions
 #
 # Tag: tag identifier
-class Tag(HexString):
+class Tag(ByteString):
     def __init__(self, tag: str):
         super().__init__(tag)
         tag, remainder = T_fieldP.parse_partial(self.data)
@@ -37,31 +37,29 @@ class Tag(HexString):
             raise ValueError(
                 F"Unknown bytes '{remainder}' after tag '{tag}'")
 
-        tag_bytes = self.int_list
-
-        if self.byte_length == 1:
-            if (tag_bytes[0] & 0x1F) == 31:
+        if len(self) == 1:
+            if (tag_number := self.int & 0x1F) == 0x1F:
                 raise ValueError(
                     F"Tag(): 1-byte tag should not have b5-b1 = 11111, received: {self}")
             else:
-                self.__tag_number = tag_bytes[0] & 0x1F
+                self.__tag_number = tag_number
                 return
 
-        if (tag_bytes[0] & 0x1F) != 31:
+        if (self[0].int & 0x1F) != 0x1F:
             raise ValueError(
                 F"Tag(): first byte of multi-byte tags should have b5-b1 = 11111, received: {self}")
 
-        if self.byte_length > 2:
-            if any(map(lambda n: (n & 0x80) == 0x00, tag_bytes[1:-1])):
+        if len(self) > 2:
+            if any(map(lambda n: (n & 0x80) == 0x00, self.int_list[1:-1])):
                 raise ValueError(
                     F"Tag(): All but last tag byte should have b8 = 1, received: {self}")
 
-        if (tag_bytes[-1] & 0x80) != 0x00:
+        if (self[-1].int & 0x80) != 0x00:
             raise ValueError(
                 F"Tag(): Last tag byte should have b8 = 0, received {self}")
 
-        __subsequent_bytes = map(lambda n: n & 0x7F, tag_bytes[2:])
-        __tag_number = tag_bytes[1] & 0x7F
+        __subsequent_bytes = map(lambda n: n & 0x7F, self.int_list[2:])
+        __tag_number = self[1].int & 0x7F
         for b in __subsequent_bytes:
             __tag_number = __tag_number << 7
             __tag_number += b
@@ -112,7 +110,7 @@ def create_tag(tag_class: TagClass, tag_construction: TagConstruction, tag_numbe
 
 
 # Length: length encoding
-class Length(HexString):
+class Length(ByteString):
     def __init__(self, length: str):
         super().__init__(length)
         length, remainder = L_fieldP.parse_partial(self.data)
@@ -139,25 +137,25 @@ class Length(HexString):
         return self.__length
 
 
-def create_length(value: HexString) -> Length:
-    match value.byte_length:
+def create_length(value: ByteString) -> Length:
+    match len(value):
         case l if l < 128:
             return Length(F'{l:02X}')
 
         case l if log2(l) < 1017:
-            nr_bits = value.byte_length.bit_length()
+            nr_bits = len(value).bit_length()
             if nr_bits % 8 == 0:
                 nr_bytes = nr_bits//8
             else:
                 nr_bytes = nr_bits//8 + 1
-            return Length(F"{128+nr_bytes:02X}" + format(value.byte_length, F"0{nr_bytes*2}X"))
+            return Length(F"{128+nr_bytes:02X}" + format(len(value), F"0{nr_bytes*2}X"))
 
         case _:
             raise ValueError(F"Cannot encode length > 2^1016")
 
 
 # TagLengthValue: TLV encoding
-class TagLengthValue(HexString):
+class TagLengthValue(ByteString):
     def __init__(self, tlv: str):
         super().__init__(tlv)
         partial_parse = TagLengthValueP.parse_partial(self.data)
@@ -168,7 +166,7 @@ class TagLengthValue(HexString):
         tag, length, value = partial_parse[0]
         self.__tag = Tag(tag)
         self.__length = Length(length)
-        self.__value = HexString(value)
+        self.__value = ByteString(value)
 
     @property
     def tag(self) -> Tag:
