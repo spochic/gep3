@@ -4,40 +4,57 @@
 # Standard library imports
 
 # Third party imports
+try:
+    from icecream import ic
+    ic.disable()
+except ImportError:  # Graceful fallback if IceCream isn't installed.
+    ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
 # Local application imports
 from common import hstr
+from common.binary import ByteString
 from crypto import des
 
-def generate_dcvv(udk: str, pan: str, atc: str, expiration_date: str):
+
+# Function definitions
+def generate_dcvv(udk: ByteString, pan: str, atc: str, expiration_date: str):
     alternate_pan = F"{atc}{pan[4:]}"
+    ic(alternate_pan)
 
     input_block = F"{alternate_pan}{expiration_date}"
-    input_block = input_block + '0' * (32 - len(input_block))
+    input_block = ByteString(input_block + '0' * (32 - len(input_block)))
 
-    udk_a = udk[0:16]
-    udk_b = udk[16:32]
-    block_a = input_block[0:16]
-    block_b = input_block[16:32]
+    udk_a = udk[0:8]
+    udk_b = udk[8:16]
+    block_a = input_block[0:8]
+    block_b = input_block[8:16]
+    ic(block_a, block_b)
 
     block_c = des.dea_e(udk_a, block_a)
-    block_d = hstr.xor(block_c, block_b)
+    block_d = block_c | block_b
     block_e = des.dea_e(udk_a, block_d)
     block_f = des.dea_d(udk_b, block_e)
     block_g = des.dea_e(udk_a, block_f)
-    block_h = hstr.dscan_decimalize(block_g)
+    block_h = block_g.dscan_decimalize
+    ic(block_c, block_d, block_e, block_f, block_g, block_h)
 
     return block_h[0:3]
 
-def generate_ivcvc3(udk: str, track: str) -> str:
+
+def generate_ivcvc3(udk: ByteString, track: str) -> str:
     if (len(track) % 16) == 0:
         block = track + "8000000000000000"
     else:
         block = track + "80" + "0" * (16 - len(track) % 16 - 2)
+    ic(block)
 
-    mac = des.mac_2_ede(udk, block)
+    mac = des.mac_2_ede(udk, ByteString(block))
+    ic(mac)
 
-    return mac[-4:]
+    return str(mac[-2:])
 
-def generate_cvc3(udk: str, block: str) -> str:
-    return F"{int(des.tdea_2_ede(udk, block)[-4:], 16):05d}"
+
+def generate_cvc3(udk: ByteString, block: str) -> str:
+    cryptogram = des.tdea_2_ede(udk, ByteString(block))
+    ic(cryptogram)
+    return F"{cryptogram[-2:].int:05d}"
