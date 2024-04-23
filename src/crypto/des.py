@@ -387,8 +387,8 @@ def mac_2_ede(key_16B: ByteString, block_8B_n: ByteString) -> ByteString:
         raise ValueError(
             F"Expected blocks of 8 bytes, received {len(block_8B_n)}: {block_8B_n}")
 
-    key__key_1 = key_16B[0:16]
-    key__key_2 = key_16B[16:32]
+    key__key_1 = key_16B[0:8]
+    key__key_2 = key_16B[8:16]
 
     mac = mac_1_e(key__key_1, block_8B_n)
     mac = dea_d(key__key_2, mac)
