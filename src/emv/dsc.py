@@ -31,12 +31,14 @@ def generate_dcvv(udk: ByteString, pan: str, atc: str, expiration_date: str):
     ic(block_a, block_b)
 
     block_c = des.dea_e(udk_a, block_a)
-    block_d = block_c | block_b
+    block_d = block_c ^ block_b
     block_e = des.dea_e(udk_a, block_d)
     block_f = des.dea_d(udk_b, block_e)
     block_g = des.dea_e(udk_a, block_f)
     block_h = block_g.dscan_decimalize
     ic(block_c, block_d, block_e, block_f, block_g, block_h)
+
+    assert block_g == des.mac_2_ede(udk, input_block)
 
     return block_h[0:3]
 
