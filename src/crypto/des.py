@@ -60,7 +60,6 @@ def dea_e(key_8B: ByteString, block_8B: ByteString) -> ByteString:
 
     # computing the 16 rounds
     # applying initial permutation
-    # block_64 = _str.perm(str(block_64), _IP)
     block_64 = block_64.permute(_IP)
     # working on block halves of 32 bits
     L_32 = block_64[0:32]
@@ -402,12 +401,12 @@ def adjust_parity(key: ByteString) -> ByteString:
     """
     match len(key):
         case 8 | 16:
-            adjusted_parity = (_adjust_parity_byte(b) for b in key.blocks(1))
+            adjusted_parity = (_adjust_parity_byte(b) for b in key)
 
             return reduce(__add__, adjusted_parity)
 
         case _:
-            raise ValueError(F"Key length not supported: {key.byte_length}")
+            raise ValueError(F"Key length not supported: {len(key)}")
 
 
 def combine_keys_xor(kcv: ByteString, components: list[tuple[ByteString, ByteString]]) -> ByteString:
@@ -420,8 +419,8 @@ def combine_keys_xor(kcv: ByteString, components: list[tuple[ByteString, ByteStr
         raise ValueError(
             F"Wrong key check value: expected {key_check_value(component_value)}, received {component_kcv}")
 
-    key_components_length = {
-        component_value.byte_length for component_value, _ in components}
+    key_components_length = {len(component_value)
+                             for component_value, _ in components}
     if len(key_components_length) != 1:
         raise ValueError(
             F"Key components have different lengths: {', '.join([str(l) for l in key_components_length])}")
@@ -470,9 +469,8 @@ def _f(roundkey_48: BitString, block_32: BitString) -> BitString:
     block_48 = block_48 ^ roundkey_48
 
     # substituting the 8 6-bit sub-blocks
-    block_32 = BitString('')
-    for i in range(8):
-        block_32 += _S[i][str(block_48[i*6:i*6+6])]
+    block_32 = BitString(
+        ''.join([_S[i][str(block_48[i*6:i*6+6])] for i in range(8)]))
 
     # applying the permutation
     block_32 = block_32.permute(_P)
