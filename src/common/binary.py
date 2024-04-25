@@ -3,11 +3,11 @@
 # Standard library imports
 from __future__ import annotations
 from collections import UserString
+from collections.abc import Sequence
 import math
-from typing import Callable, Iterable
+from typing import Iterable, SupportsInt
 from functools import reduce
-from array import array
-from operator import __add__, __xor__, __and__, __or__
+from operator import __add__, __xor__, __and__, __or__, __lshift__, __rshift__
 
 # Third party imports
 
@@ -17,70 +17,222 @@ from operator import __add__, __xor__, __and__, __or__
 # Helper functions
 __HEX_DIGITS = '0123456789abcdefABCDEF'
 __BIT_DIGITS = '01'
-__WHITESPACE = '_'
 
 
-def clean_char(c: str, keep: str, ignore: str, message: str) -> str:
-    match c:
-        case c if c in keep:
+def _clean_char(keep: str, ignore: str, message: str):
+    def _clean_char(c: str):
+        if c in keep:
             return c
-        case c if c in ignore:
+        elif c in ignore:
             return ''
-        case _:
+        else:
+            raise TypeError(F"Character '{c}' not allowed in {message}")
+
+    return _clean_char
+
+
+def _clean_string(s: str, keep: str, ignore: str, message: str) -> str:
+    return reduce(__add__, map(_clean_char(keep, ignore, message), s))
+
+
+def _clean_hex_string(s: str, ignore: str = "_") -> str:
+    return _clean_string(s, keep=__HEX_DIGITS, ignore=ignore, message="hexadecimal string")
+
+
+def _clean_bit_string(s: str, ignore: str = "_") -> str:
+    return _clean_string(s, keep=__BIT_DIGITS, ignore=ignore, message="bit string")
+
+
+def _align_string(left, right):
+    match len(left)-len(right):
+        case l if l < 0:
+            # left is shorter
+            return left.lpad(len(right)), right
+        case l if l == 0:
+            # both are same length
+            return left, right
+        case l if l > 0:
+            # left is longer
+            return left, right.lpad(len(left))
+
+
+def _bitwise_operation(left, right, op):
+    match left, right:
+        case ByteString(), ByteString():
+            fmt = '02X'
+        case HexString(), HexString():
+            fmt = 'X'
+        case BitString(), BitString():
+            fmt = 'X'
+
+    return ''.join(([format(op(int(l), int(r)), fmt) for l, r in zip(*_align_string(left, right))]))
+
+
+# 'BitString' class
+class BitString(UserString):
+    def __init__(self, value: int | Sequence, *, ignore: str = "_"):
+        if isinstance(value, int):
+            value_string = format(value, "b")
+        elif isinstance(value, str):
+            value_string = _clean_bit_string(value, ignore)
+        elif isinstance(value, bytes):
+            value_string = ''.join([format(b, '08b') for b in value])
+        elif isinstance(value, list):
+            value_string = ''.join([format(b, '08b') for b in value])
+        else:
             raise TypeError(
-                F"Character '{c}' not allowed in {message}")
+                F"BitString()| unsupported initializer type: {type(value)}")
 
+        super().__init__(value_string)
 
-def clean_hex_char(c: str) -> str:
-    return clean_char(c, keep=__HEX_DIGITS, ignore=__WHITESPACE, message="hexadecimal string")
+    def __int__(self) -> int:
+        return int(self.data, 2)
 
+    def __repr__(self):
+        return F"BitString('{self}')"
 
-def clean_bit_char(c: str) -> str:
-    return clean_char(c, keep=__BIT_DIGITS, ignore=__WHITESPACE, message="binary string")
+    def __hash__(self):
+        return hash(self.data)
 
+    def __eq__(self, string: SupportsInt):
+        return int(self) == int(string)
 
-def bitwise_operation(left: str, right: str, operator: Callable[[int, int], int]):
-    length = max(len(left), len(right))
+    def __lt__(self, string: SupportsInt):
+        return int(self) < int(string)
 
-    return format(operator(int(left, 16), int(right, 16)), F"0{length}X")
+    def __le__(self, string: SupportsInt):
+        return int(self) <= int(string)
+
+    def __gt__(self, string: SupportsInt):
+        return int(self) > int(string)
+
+    def __ge__(self, string: SupportsInt):
+        return int(self) >= int(string)
+
+    def __or__(self, other: BitString) -> BitString:
+        return BitString(_bitwise_operation(self, other, __or__))
+
+    def __xor__(self, other: BitString) -> BitString:
+        return BitString(_bitwise_operation(self, other, __xor__))
+
+    def __and__(self, other: BitString) -> BitString:
+        return BitString(_bitwise_operation(self, other, __and__))
+
+    def __invert__(self) -> BitString:
+        return self ^ BitString('1' * len(self))
+
+    def lpad(self, size: int) -> BitString:
+        if len(self) < size:
+            return BitString('0' * (size-len(self))) + self
+        else:
+            return self
+
+    def rpad(self, size: int) -> BitString:
+        if len(self) < size:
+            return self + BitString('0' * (size-len(self)))
+        else:
+            return self
+
+    def blocks(self, blocksize: int) -> Iterable[BitString]:
+        nr_blocks = math.ceil(len(self) / blocksize)
+        return (self[i*blocksize:(i+1)*blocksize] for i in range(nr_blocks))
+
+    # def join(self, seq: Iterable[BitString]) -> BitString:
+    #     return reduce(__add__, seq)
+
+    def permute(self, permutation: list[int]) -> BitString:
+        str_out: str = ''
+
+        for i in permutation:
+            str_out += str(self[i-1])
+
+        return BitString(str_out)
+
+    def expand(self, expansion: list[int]) -> BitString:
+        return self.permute(expansion)
+
+    def left_circular_shit(self, shift: int) -> BitString:
+        return self[shift:] + self[:shift]
+
+    @property
+    def byte_string(self) -> ByteString:
+        if len(self) % 8 == 0:
+            return ByteString([int(b) for b in self.blocks(8)])
+        else:
+            return ByteString([int(b) for b in self.zfill(len(self)+8 - len(self) % 8).blocks(8)])
 
 
 # 'HexString' class
 class HexString(UserString):
-    def __init__(self, string: str):
-        value: str = reduce(__add__, map(clean_hex_char, string))
-        super().__init__(value.upper())
-
-    @property
-    def bytes(self) -> bytes:
-        return bytes.fromhex(self.data)
-
-    @property
-    def byte_length(self) -> int:
-        if len(self) % 2 == 0:
-            return len(self) // 2
+    def __init__(self, value: int | Sequence, *, ignore: str = "_"):
+        if isinstance(value, int):
+            value_string = format(value, "X")
+        elif isinstance(value, str):
+            value_string = _clean_hex_string(value, ignore)
+        elif isinstance(value, bytes):
+            value_string = ''.join([format(b, '02X') for b in value])
+        elif isinstance(value, list):
+            value_string = ''.join([format(b, '02X') for b in value])
         else:
-            raise ValueError(F"{self.data} has an odd number of nibbles")
+            raise TypeError(
+                F"HexString()| unsupported initializer type: {type(value)}")
 
-    @property
-    def bit_string(self) -> BitString:
-        return BitString(''.join([F"{int(nibble, 16):04b}" for nibble in self.data]))
+        super().__init__(value_string)
 
-    @property
-    def bit_length(self) -> int:
-        return len(self) * 4
+    def __int__(self) -> int:
+        return int(self.data, 16)
 
-    @property
-    def int_list(self) -> list[int]:
-        return list(self.bytes)
+    def __str__(self):
+        return str(self.data.upper())
 
-    @property
-    def int_array(self) -> array:
-        return array('B', self.bytes)
+    def __repr__(self):
+        return F"HexString('{self}')"
 
-    @property
-    def int(self) -> int:
-        return int.from_bytes(self.bytes)
+    def __hash__(self):
+        return hash(self.data.upper())
+
+    def __eq__(self, string: SupportsInt):
+        return int(self) == int(string)
+
+    def __lt__(self, string: SupportsInt):
+        return int(self) < int(string)
+
+    def __le__(self, string: SupportsInt):
+        return int(self) <= int(string)
+
+    def __gt__(self, string: SupportsInt):
+        return int(self) > int(string)
+
+    def __ge__(self, string: SupportsInt):
+        return int(self) >= int(string)
+
+    def __or__(self, other: HexString) -> HexString:
+        return HexString(_bitwise_operation(self, other, __or__))
+
+    def __xor__(self, other: HexString) -> HexString:
+        return HexString(_bitwise_operation(self, other, __xor__))
+
+    def __and__(self, other: HexString) -> HexString:
+        return HexString(_bitwise_operation(self, other, __and__))
+
+    def __invert__(self) -> HexString:
+        return self ^ HexString('F' * len(self))
+
+    def lpad(self, size: int) -> HexString:
+        if len(self) < size:
+            return HexString('0' * (size-len(self))) + self
+        else:
+            return self
+
+    def rpad(self, size: int) -> HexString:
+        if len(self) < size:
+            return self + HexString('0' * (size-len(self)))
+        else:
+            return self
+
+    # @property
+    # def bit_length(self) -> int:
+    #     return len(self) * 4
 
     @property
     def dscan_decimalize(self) -> str:
@@ -96,137 +248,114 @@ class HexString(UserString):
 
         return dstr1 + dstr2
 
-    def blocks(self, bytesize: int) -> Iterable[HexString]:
-        nr_blocks = math.ceil(self.byte_length / bytesize)
-        return (self[i*2*bytesize:(i+1)*2*bytesize] for i in range(nr_blocks))
+    def blocks(self, blocksize: int) -> Iterable[HexString]:
+        nr_blocks = math.ceil(len(self) / blocksize)
+        return (self[i*2*blocksize:(i+1)*2*blocksize] for i in range(nr_blocks))
 
-    def join(self, seq: Iterable[HexString]) -> HexString:
-        return reduce(__add__, seq)
-
-    def __or__(self, other: HexString) -> HexString:
-        return HexString(bitwise_operation(self.data, other.data, __or__))
-
-    def __xor__(self, other: HexString) -> HexString:
-        return HexString(bitwise_operation(self.data, other.data, __xor__))
-
-    def __and__(self, other: HexString) -> HexString:
-        return HexString(bitwise_operation(self.data, other.data, __and__))
-
-    def __invert__(self) -> HexString:
-        return self ^ HexString('FF' * self.byte_length)
+    # def join(self, seq: Iterable[HexString]) -> HexString:
+    #     return reduce(__add__, seq)
 
 
 # 'ByteString' class
 class ByteString(HexString):
-    def __init__(self, string: str):
-        if len(HexString(string)) % 2 != 0:
-            super().__init__('0' + string)
+    def __init__(self, value: int | Sequence, *, ignore: str = "_"):
+        if isinstance(value, int):
+            value_string = format(value, "X")
+            if len(value_string) % 2 != 0:
+                value_string = '0' + value_string
+        elif isinstance(value, str):
+            value_string = _clean_hex_string(value, ignore)
+            if len(value_string) % 2 != 0:
+                raise ValueError(
+                    F"ByteString()| received off number of nibbles: {value_string}")
+        elif isinstance(value, bytes):
+            value_string = ''.join([format(b, '02X') for b in value])
+        elif isinstance(value, list):
+            value_string = ''.join([format(b, '02X') for b in value])
         else:
-            super().__init__(string)
+            raise TypeError(
+                F"ByteString()| unsupported initializer type: {type(value)}")
 
-    @property
-    def byte_length(self) -> int:
-        if len(self.data) % 2 == 0:
-            return len(self.data) // 2
+        super().__init__(value_string)
+
+    def __int__(self) -> int:
+        return int(self.data, 16)
+
+    def __str__(self):
+        return str(self.data.upper())
+
+    def __repr__(self):
+        return F"ByteString('{self}')"
+
+    def __hash__(self):
+        return hash(self.data.upper())
+
+    def __eq__(self, string: SupportsInt):
+        if isinstance(string, str):
+            return int(self) == int(string, 16)
         else:
-            raise ValueError(F"{self.data} has an odd number of nibbles")
+            return int(self) == int(string)
 
-    @property
-    def bit_length(self) -> int:
-        return len(self) * 8
+    def __lt__(self, string: SupportsInt):
+        return int(self) < int(string)
 
-    def blocks(self, bytesize: int) -> Iterable[ByteString]:
-        nr_blocks = math.ceil(self.byte_length / bytesize)
-        return (self[i*bytesize:(i+1)*bytesize] for i in range(nr_blocks))
+    def __le__(self, string: SupportsInt):
+        return int(self) <= int(string)
 
-    def join(self, seq: Iterable[ByteString]) -> ByteString:
-        return reduce(__add__, seq)
+    def __gt__(self, string: SupportsInt):
+        return int(self) > int(string)
+
+    def __ge__(self, string: SupportsInt):
+        return int(self) >= int(string)
 
     def __or__(self, other: ByteString) -> ByteString:
-        return ByteString(bitwise_operation(self.data, other.data, __or__))
+        return ByteString(_bitwise_operation(self, other, __or__))
 
     def __xor__(self, other: ByteString) -> ByteString:
-        return ByteString(bitwise_operation(self.data, other.data, __xor__))
+        return ByteString(_bitwise_operation(self, other, __xor__))
 
     def __and__(self, other: ByteString) -> ByteString:
-        return ByteString(bitwise_operation(self.data, other.data, __and__))
+        return ByteString(_bitwise_operation(self, other, __and__))
 
     def __invert__(self) -> ByteString:
         return self ^ ByteString('FF' * len(self))
 
-    def __getitem__(self, key) -> ByteString:
-        if isinstance(key, slice):
-            return ByteString(self.bytes[key].hex())
-        else:
-            return ByteString(F"{self.bytes[key]:02X}")
-
-    def __len__(self) -> int:
-        return len(self.data) // 2
-
-
-# 'BitString' class
-class BitString(UserString):
-    def __init__(self, string: str):
-        value: str = ''.join(map(clean_bit_char, string))
-        super().__init__(value.upper())
-
     @property
     def bytes(self) -> bytes:
-        return HexString(self.data).bytes
+        return bytes.fromhex(self.data)
 
     @property
-    def byte_length(self) -> int:
-        return HexString(self.data).byte_length
-
-    @property
-    def hex_string(self) -> HexString:
-        if len(self) % 4 == 0:
-            return HexString(format(int(self.data, 2), F"0{len(self)//4}X"))
-        else:
-            raise ValueError(
-                F"{self.data} has a number of bit that is not a multiple of 4")
-
-    @property
-    def byte_string(self) -> ByteString:
-        if len(self) % 8 == 0:
-            return ByteString(format(int(self.data, 2), F"0{len(self)//4}X"))
-        else:
-            raise ValueError(
-                F"{self.data} has a number of bit that is not a multiple of 4")
+    def bit_string(self) -> BitString:
+        return BitString(self.bytes)
 
     @property
     def int_list(self) -> list[int]:
-        return HexString(self.data).int_list
+        return [int(b) for b in self.bytes]
 
-    def blocks(self, bitsize: int) -> Iterable[BitString]:
-        nr_blocks = math.ceil(self.byte_length / bitsize)
-        return (self[i*2*bitsize:(i+1)*2*bitsize] for i in range(nr_blocks))
+    def blocks(self, blocksize: int) -> Iterable[ByteString]:
+        nr_blocks = math.ceil(len(self) / blocksize)
+        return (self[i*blocksize:(i+1)*blocksize] for i in range(nr_blocks))
 
-    def join(self, seq: Iterable[BitString]) -> BitString:
-        return reduce(__add__, seq)
+    def lpad(self, size: int) -> ByteString:
+        return self.zfill(2*size)
 
-    def permute(self, permutation: list[int]) -> BitString:
-        str_out = BitString('')
+    def rpad(self, size: int) -> ByteString:
+        if len(self) < size:
+            return self + ByteString('00' * (size-len(self)))
+        else:
+            return self
 
-        for i in permutation:
-            str_out += self[i-1]
+    def mask(self, mask: str) -> ByteString:
+        return self & ByteString(mask)
 
-        return str_out
+    # def bitset(self, bit: int) -> bool:
+    #     return
 
-    def expand(self, expansion: list[int]) -> BitString:
-        return self.permute(expansion)
+    # def __rshift__(self, shift: int) -> ByteString:
+    #     return ByteString.from_int(self.int >> shift).lpad(len(self))
 
-    def left_circular_shit(self, shift: int) -> BitString:
-        return self[shift:] + self[:shift]
+    def __getitem__(self, key) -> ByteString:
+        return ByteString(self.bytes[key])
 
-    def __or__(self, other: BitString) -> BitString:
-        return BitString(bitwise_operation(self.data, other.data, __or__))
-
-    def __xor__(self, other: BitString) -> BitString:
-        return BitString(bitwise_operation(self.data, other.data, __xor__))
-
-    def __and__(self, other: BitString) -> BitString:
-        return BitString(bitwise_operation(self.data, other.data, __and__))
-
-    def __invert__(self) -> BitString:
-        return self ^ BitString('1' * len(self))
+    def __len__(self) -> int:
+        return len(self.bytes)
