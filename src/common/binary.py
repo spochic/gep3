@@ -8,6 +8,7 @@ import math
 from typing import Iterable, SupportsInt
 from functools import reduce
 from operator import __add__, __xor__, __and__, __or__, __lshift__, __rshift__
+import sys as _sys
 
 # Third party imports
 
@@ -287,6 +288,12 @@ class ByteString(HexString):
     def __repr__(self):
         return F"ByteString('{self}')"
 
+    def __getitem__(self, key) -> ByteString:
+        return ByteString(self.bytes[key])
+
+    def __len__(self) -> int:
+        return len(self.bytes)
+
     def __hash__(self):
         return hash(self.data.upper())
 
@@ -354,8 +361,8 @@ class ByteString(HexString):
     # def __rshift__(self, shift: int) -> ByteString:
     #     return ByteString.from_int(self.int >> shift).lpad(len(self))
 
-    def __getitem__(self, key) -> ByteString:
-        return ByteString(self.bytes[key])
-
-    def __len__(self) -> int:
-        return len(self.bytes)
+    def startswith(self, prefix, start=0, end=_sys.maxsize):
+        if isinstance(prefix, str):
+            return self.data.upper().startswith(prefix.upper(), start, end)
+        else:
+            return self.data.upper().startswith(map(upper, prefix), start, end)
