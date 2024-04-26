@@ -138,12 +138,14 @@ def tdea_2_ede(key_16B: ByteString, block_8B: ByteString) -> ByteString:
         raise ValueError(
             F"Expected 8 bytes, received {len(block_8B)}: {block_8B}")
 
-    # DES encryption with key #1
-
     # converting the input from hexadecimal string to bit string
     key_128 = key_16B.bit_string
     key_64 = key_128[0:64]
     block_64 = block_8B.bit_string
+
+    #
+    # DES encryption with key #1
+    #
 
     # pre-computing the 16 round keys
     roundkeys1 = _roundkeys(key_64)
@@ -160,7 +162,9 @@ def tdea_2_ede(key_16B: ByteString, block_8B: ByteString) -> ByteString:
 
     block_64 = R_32 + L_32
 
+    #
     # DES decryption with key #2
+    #
 
     key_64 = key_128[64:128]
 
@@ -177,7 +181,9 @@ def tdea_2_ede(key_16B: ByteString, block_8B: ByteString) -> ByteString:
 
     block_64 = R_32 + L_32
 
+    #
     # DES encryption with key #1
+    #
 
     # computing the 16 rounds
     # working on block halves of 32 bits
@@ -205,7 +211,9 @@ def tdea_2_ded(key_16B: ByteString, block_8B: ByteString) -> ByteString:
         raise ValueError(
             F"Expected 8 bytes, received {len(block_8B)}: {block_8B}")
 
+    #
     # DES decryption with key #1
+    #
 
     # converting the input from hexadecimal string to bit string
     key_128 = key_16B.bit_string
@@ -245,6 +253,156 @@ def tdea_2_ded(key_16B: ByteString, block_8B: ByteString) -> ByteString:
     block_64 = R_32 + L_32
 
     # DES decryption with key #1
+
+    # computing the 16 rounds
+    # working on block halves of 32 bits
+    L_32 = block_64[0:32]
+    R_32 = block_64[32:64]
+
+    for roundkey1 in reversed(roundkeys1):
+        (L_32, R_32) = _round(roundkey1, L_32, R_32)
+
+    # applying the inversed initial permutation
+    block_64 = (R_32 + L_32).permute(_IPINV)
+    assert len(block_64) == 64
+
+    return block_64.byte_string
+
+
+def tdea_3_ede(key_24B: ByteString, block_8B: ByteString) -> ByteString:
+    """tdea_3_ede: Triple DES encryption algorithm
+    """
+    # checking inputs
+    if len(key_24B) != 24:
+        raise ValueError(
+            F"Expected 24 bytes, received {len(key_24B)}: {key_24B}")
+    if len(block_8B) != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {len(block_8B)}: {block_8B}")
+
+    # converting the input from hexadecimal string to bit string
+    key_64_1 = key_24B[0:8].bit_string
+    key_64_2 = key_24B[8:16].bit_string
+    key_64_3 = key_24B[16:24].bit_string
+    block_64 = block_8B.bit_string
+
+    #
+    # DES encryption with key #1
+    #
+
+    # pre-computing the 16 round keys
+    roundkeys1 = _roundkeys(key_64_1)
+
+    # computing the 16 rounds
+    # applying initial permutation
+    block_64 = block_64.permute(_IP)
+    # working on block halves of 32 bits
+    L_32 = block_64[0:32]
+    R_32 = block_64[32:64]
+
+    for roundkey1 in roundkeys1:
+        (L_32, R_32) = _round(roundkey1, L_32, R_32)
+
+    block_64 = R_32 + L_32
+
+    #
+    # DES decryption with key #2
+    #
+
+    # pre-computing the 16 round keys
+    roundkeys2 = _roundkeys(key_64_2)
+
+    # computing the 16 rounds
+    # working on block halves of 32 bits
+    L_32 = block_64[0:32]
+    R_32 = block_64[32:64]
+
+    for roundkey2 in reversed(roundkeys2):
+        (L_32, R_32) = _round(roundkey2, L_32, R_32)
+
+    block_64 = R_32 + L_32
+
+    #
+    # DES encryption with key #3
+    #
+
+    # pre-computing the 16 round keys
+    roundkeys3 = _roundkeys(key_64_3)
+
+    # computing the 16 rounds
+    # working on block halves of 32 bits
+    L_32 = block_64[0:32]
+    R_32 = block_64[32:64]
+
+    for roundkey3 in roundkeys3:
+        (L_32, R_32) = _round(roundkey3, L_32, R_32)
+
+    # applying the inversed initial permutation
+    block_64 = (R_32 + L_32).permute(_IPINV)
+    assert len(block_64) == 64
+
+    return block_64.byte_string
+
+
+def tdea_3_ded(key_24B: ByteString, block_8B: ByteString) -> ByteString:
+    """tdea_3_ded: Triple DES decryption algorithm
+    """
+    # checking inputs
+    if len(key_24B) != 24:
+        raise ValueError(
+            F"Expected 24 bytes, received {len(key_24B)}: {key_24B}")
+    if len(block_8B) != 8:
+        raise ValueError(
+            F"Expected 8 bytes, received {len(block_8B)}: {block_8B}")
+
+    # converting the input from hexadecimal string to bit string
+    key_64_1 = key_24B[0:8].bit_string
+    key_64_2 = key_24B[8:16].bit_string
+    key_64_3 = key_24B[16:24].bit_string
+    block_64 = block_8B.bit_string
+
+    #
+    # DES decryption with key #3
+    #
+
+    # pre-computing the 16 round keys
+    roundkeys3 = _roundkeys(key_64_3)
+
+    # computing the 16 rounds
+    # applying initial permutation
+    block_64 = block_64.permute(_IP)
+    # working on block halves of 32 bits
+    L_32 = block_64[0:32]
+    R_32 = block_64[32:64]
+
+    for roundkey3 in reversed(roundkeys3):
+        (L_32, R_32) = _round(roundkey3, L_32, R_32)
+
+    block_64 = R_32 + L_32
+
+    #
+    # DES encryption with key #2
+    #
+
+    # pre-computing the 16 round keys
+    roundkeys2 = _roundkeys(key_64_2)
+
+    # computing the 16 rounds
+    # working on block halves of 32 bits
+    L_32 = block_64[0:32]
+    R_32 = block_64[32:64]
+
+    for roundkey2 in roundkeys2:
+        (L_32, R_32) = _round(roundkey2, L_32, R_32)
+
+    block_64 = R_32 + L_32
+
+    #
+    # DES decryption with key #1
+    #
+
+    # pre-computing the 16 round keys
+    roundkeys1 = _roundkeys(key_64_1)
 
     # computing the 16 rounds
     # working on block halves of 32 bits
@@ -323,6 +481,34 @@ def tdea_2_ded_cbc(key_16B: ByteString, block_8B_n: ByteString, iv_8B: ByteStrin
     return modes.cbc_decryption(tdea_2_ded, key_16B, block_8B_n.blocks(8), iv_8B)
 
 
+def tdea_3_ede_ecb(key_24B: ByteString, block_8B_n: ByteString) -> ByteString:
+    """tdea_3_ede_ecb: Triple DES encryption algorithm in ECB mnode
+    """
+    # checking inputs
+    if len(key_24B) != 24:
+        raise ValueError(
+            F"Expected 24 bytes, received {len(key_24B)}: {key_24B}")
+    if (len(block_8B_n) % 8) != 0:
+        raise ValueError(
+            F"Expected blocks of 8 bytes, received {len(block_8B_n)}: {block_8B_n}")
+
+    return modes.ecb_encryption(tdea_3_ede, key_24B, block_8B_n.blocks(8))
+
+
+def tdea_3_ded_ecb(key_24B: ByteString, block_8B_n: ByteString) -> ByteString:
+    """tdea_3_ded_ecb: Triple DES decryption algorithm in ECB mode
+    """
+    # checking inputs
+    if len(key_24B) != 24:
+        raise ValueError(
+            F"Expected 24 bytes, received {len(key_24B)}: {key_24B}")
+    if (len(block_8B_n) % 8) != 0:
+        raise ValueError(
+            F"Expected blocks of 8 bytes, received {len(block_8B_n)}: {block_8B_n}")
+
+    return modes.ecb_decryption(tdea_3_ded, key_24B, block_8B_n.blocks(8))
+
+
 def encrypt(key: ByteString, block_8B: ByteString) -> ByteString:
     """encrypt(): Single or triple-DES encryption
     """
@@ -332,6 +518,9 @@ def encrypt(key: ByteString, block_8B: ByteString) -> ByteString:
 
         case 16:
             return tdea_2_ede(key, block_8B)
+
+        case 24:
+            return tdea_3_ede(key, block_8B)
 
         case _:
             raise ValueError(F"Key length not supported: {len(key)}")
@@ -351,10 +540,10 @@ def decrypt(key: ByteString, block_8B: ByteString) -> ByteString:
             raise ValueError(F"Key length not supported: {len(key)}")
 
 
-def key_check_value(key: ByteString, len=3) -> ByteString:
+def key_check_value(key: ByteString, *, len=3) -> ByteString:
     """key_check_value(): Key Check Value
     """
-    return encrypt(key, ByteString('00' * 8))[0:2*len]
+    return encrypt(key, ByteString('00' * 8))[0:len]
 
 
 def mac_1_e(key_8B: ByteString, block_8B_n: ByteString) -> ByteString:
@@ -428,9 +617,9 @@ def combine_keys_xor(kcv: ByteString, components: list[tuple[ByteString, ByteStr
     combined_key = reduce(__xor__,
                           [component_value for component_value, _ in components])
 
-    if key_check_value(combined_key, len(kcv)) != kcv:
+    if key_check_value(combined_key, len=len(kcv)) != kcv:
         raise ValueError(
-            F"Wrong key check value: expected {kcv}, got {key_check_value(combined_key, len(kcv))}")
+            F"Wrong key check value: expected {kcv}, got {key_check_value(combined_key, len=len(kcv))}")
     else:
         return combined_key
 
