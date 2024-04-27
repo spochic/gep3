@@ -352,11 +352,14 @@ class ByteString(HexString):
         else:
             return self
 
-    def mask(self, mask: str) -> ByteString:
+    def mask(self, mask: int) -> ByteString:
         return self & ByteString(mask)
 
-    # def bitset(self, bit: int) -> bool:
-    #     return
+    def is_bit_set(self, bit: int) -> bool:
+        return self.mask(1 << (bit-1)) == 1 << (bit-1)
+
+    def is_bit_unset(self, bit: int) -> bool:
+        return not self.is_bit_set(bit)
 
     # def __rshift__(self, shift: int) -> ByteString:
     #     return ByteString.from_int(self.int >> shift).lpad(len(self))
