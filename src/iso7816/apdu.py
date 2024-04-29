@@ -2,19 +2,19 @@
 """
 
 # Standard library imports
-from enum import Enum
-from copy import deepcopy
-from array import array
+from __future__ import annotations
+from enum import StrEnum
+from typing import Optional
 
 # Third party imports
 
 # Local application imports
-from common.hstr import clean as _clean, to_intlist as _to_intlist
-from common.intlist import to_hstr as _to_hstr, is_int_list as _is_int_list
+from common.binary import ByteString
+from .encodings import Lc, Le
 
 
 # Enum Definitions
-class CommandCase(Enum):
+class CommandCase(StrEnum):
     Case1 = 'Case 1'
     Case2S = 'Case 2S'
     Case2E = 'Case 2E'
@@ -24,7 +24,7 @@ class CommandCase(Enum):
     Case4E = 'Case 4E'
 
 
-class CommandField(Enum):
+class CommandField(StrEnum):
     Header = 'Header'
     Body = 'Body'
     Class = 'Class'
@@ -36,16 +36,7 @@ class CommandField(Enum):
     Le = 'Le'
 
 
-class ResponseField(Enum):
-    Body = 'Body'
-    Trailer = 'Trailer'
-    Data = 'Data'
-    SW1 = 'SW1'
-    SW2 = 'SW2'
-    SW12 = 'SW12'
-
-
-class ResponseProcessingState(Enum):
+class ResponseProcessingState(StrEnum):
     Normal = 'Normal procesing'
     Warning = 'Warning processing'
     ExecutionError = 'Execution error'
@@ -53,474 +44,417 @@ class ResponseProcessingState(Enum):
 
 
 # Command and Response APDU classes
-class CommandApdu:
-    # type: ignore
-    def __init__(self, CLA: int, INS: int, P1: int, P2: int, data: list[int] = None, Le: int = None):
-        if CLA < 0 or CLA > 255:
-            raise ValueError(
-                F"CommandApdu(): CLA should be [0-255], received: {CLA}")
-        elif INS < 0 or INS > 255:
-            raise ValueError(
-                F"CommandApdu(): INS should be [0-255], received: {INS}")
-        elif P1 < 0 or P1 > 255:
-            raise ValueError(
-                F"CommandApdu(): P1 should be [0-255], received: {P1}")
-        elif P2 < 0 or P2 > 255:
-            raise ValueError(
-                F"CommandApdu(): P2 should be [0-255], received: {P2}")
-        elif data is not None:
-            if not _is_int_list(data):
+class CommandApdu(ByteString):
+    def __init__(self, CLA: ByteString, INS: ByteString, P1: ByteString, P2: ByteString, data_field: Optional[ByteString], Ne: Optional[int]):
+        for param in ["CLA", "INS", "P1", "P2"]:
+            if len(locals()[param]) != 1:
                 raise ValueError(
-                    F"CommandApdu(): data should be list of [0-255], received: {data}")
+                    F"{param} should be 1 byte, received: {locals()[param]}")
 
-        self.__content = array('B', [CLA, INS, P1, P2])
-
-        match data, Le:
+        match data_field, Ne:
             case None, None:
                 # Case 1
+                super().__init__(str(CLA + INS + P1 + P2))
                 self.__case = CommandCase.Case1
 
-            case None, _:
+            case None, int():
                 # Case 2
-                if Le <= 0:
-                    raise ValueError(
-                        F"CommandApdu(): Le should be [0-65,536], received: {Le}")
-                elif Le < 256:
+                if len(Le(Ne)) == 1:
                     # Case 2S
+                    super().__init__(str(CLA + INS + P1 + P2 + Le(Ne)))
                     self.__case = CommandCase.Case2S
-                    self.__content.append(Le)
-                elif Le == 256:
-                    # Case 2S
-                    self.__case = CommandCase.Case2S
-                    self.__content.append(0x00)
-                elif Le < 65536:
-                    # Case 2E
-                    self.__case = CommandCase.Case2E
-                    self.__content.extend(int.to_bytes(Le, 3, byteorder='big'))
-                elif Le == 65536:
-                    # Case 2E
-                    self.__case = CommandCase.Case2E
-                    self.__content.extend([0x00, 0x00, 0x00])
                 else:
-                    raise ValueError(
-                        F"CommandApdu(): Le should be [0-65,536], received: {Le}")
+                    # Case 2E
+                    super().__init__(str(CLA + INS + P1 + P2 + Le(Ne)))
+                    self.__case = CommandCase.Case2E
 
-            case _, None:
+            case ByteString(), None:
                 # Case 3
-                Lc = len(data)
-                if Lc == 0:
-                    raise ValueError(
-                        F"CommandApdu(): data should not be empty, received: {data}")
-                elif Lc < 256:
+                if len(Lc(data_field)) == 1:
                     # Case 3S
+                    super().__init__(str(CLA + INS + P1 + P2 + Lc(data_field) + data_field))
                     self.__case = CommandCase.Case3S
-                    self.__content.append(Lc)
-                    self.__content.extend(data)
-                elif Lc < 65536:
-                    # Case 3E
-                    self.__case = CommandCase.Case3E
-                    self.__content.extend(int.to_bytes(Lc, 3, byteorder='big'))
                 else:
-                    raise ValueError(
-                        F"CommandApdu(): length of data should be [1-65,535] bytes, received {Lc} bytes ({data})")
+                    # Case 3E
+                    super().__init__(str(CLA + INS + P1 + P2 + Lc(data_field) + data_field))
+                    self.__case = CommandCase.Case3E
+
+            case ByteString(), int():
+                # Case 4
+                if len(Le(Ne)) == 1:
+                    # Case 4S
+                    super().__init__(str(CLA + INS + P1 + P2 + Lc(data_field) + data_field + Le(Ne)))
+                    self.__case = CommandCase.Case4S
+                else:
+                    # Case 4E
+                    super().__init__(str(CLA + INS + P1 + P2 + Lc(data_field) + data_field + Le(Ne)))
+                    self.__case = CommandCase.Case4E
 
             case _, _:
-                # Case 4
-                Lc = len(data)
-                if Le <= 0:
-                    raise ValueError(
-                        F"CommandApdu(): Le should be [0-65,536], received: {Le}")
-                elif Lc == 0:
-                    raise ValueError(
-                        F"CommandApdu(): data should not be empty, received: {data}")
-                elif Lc < 256 and Le <= 256:
-                    # Case 4S
-                    self.__case = CommandCase.Case4S
-                    self.__content.append(Lc)
-                    self.__content.extend(data)
-                    if Le == 256:
-                        self.__content.append(0x00)
-                    else:
-                        self.__content.append(Le)
-                elif Lc < 65536 and Le <= 65536:
-                    # Case 4E
-                    self.__case = CommandCase.Case4E
-                    self.__content.extend(int.to_bytes(Lc, 3, byteorder='big'))
-                    self.__content.extend(data)
-                    if Le == 65536:
-                        self.__content.extend([0x00, 0x00])
-                    else:
-                        self.__content.extend(
-                            int.to_bytes(Le, 2, byteorder='big'))
-
-    @classmethod
-    def from_string(cls, apdu_str: str):
-        _apdu_list = _to_intlist(
-            apdu_str, "CommandApdu.__init__()", "apdu_str")
-
-        apdu_length = len(_apdu_list)
-
-        if apdu_length < 4:
-            raise ValueError(
-                F'Wrong Command APDU length: expected 4 or more bytes but received {apdu_length}')
-
-        elif apdu_length == 4:
-            # Case 1
-            return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3])
-
-        elif apdu_length == 5:
-            # Case 2S
-            return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], Le=_apdu_list[4])
-
-        elif _apdu_list[4] != 0x00:
-            if apdu_length == 5 + _apdu_list[4]:
-                # Case 3S
-                return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], data=_apdu_list[5:])
-            elif apdu_length == 5 + _apdu_list[4] + 1:
-                # Case 4S
-                return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], data=_apdu_list[5:-1], Le=_apdu_list[-1])
-            else:
                 raise ValueError(
-                    F'Wrong Command APDU length: expected {5+_apdu_list[4]} bytes for Case 3s or {5+_apdu_list[4]+1} bytes for Case 4s but received {apdu_length} bytes instead')
-
-        else:
-            # Extended length cases
-            if apdu_length == 7:
-                # Case 2E
-                if int.from_bytes(_apdu_list[4:], byteorder='big') == 0:
-                    return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], Le=65536)
-                else:
-                    return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], Le=int.from_bytes(_apdu_list[4:], byteorder='big'))
-
-            elif apdu_length == 7 + _apdu_list[5] * 0x0100 + _apdu_list[6]:
-                # Case 3E
-                return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], data=_apdu_list[7:])
-
-            elif apdu_length == 7 + _apdu_list[5] * 0x0100 + _apdu_list[6] + 2:
-                # Case 4E
-                return cls(_apdu_list[0], _apdu_list[1], _apdu_list[2], _apdu_list[3], data=_apdu_list[5:-2], Le=int.from_bytes(_apdu_list[-2:], byteorder='big'))
-
-            else:
-                raise ValueError(
-                    F'Wrong Command APDU length: expected {7 + _apdu_list[5] * 0x0100 + _apdu_list[6]} bytes for Case 3e or {7 + _apdu_list[5] * 0x0100 + _apdu_list[6] + 2} bytes for Case 4e but received {apdu_length} bytes instead')
+                    F"Received wrong data_field ({data_field}) and/or Ne ({Ne})")
 
     @property
     def case(self) -> CommandCase:
         return self.__case
 
     @property
-    def list(self) -> list[int]:
-        return list(self.__content)
+    def header(self) -> ByteString:
+        return self[0:4]
 
     @property
-    def string(self) -> str:
-        return _to_hstr(self.__content)
+    def body(self) -> ByteString:
+        return self[4:]
 
     @property
-    def array(self):
-        return deepcopy(self.__content)
+    def CLA(self) -> ByteString:
+        return self[0]
 
     @property
-    def header(self):
-        return self.__content[0:4]
+    def INS(self) -> ByteString:
+        return self[1]
 
     @property
-    def body(self):
-        return self.__content[4:]
+    def P1(self) -> ByteString:
+        return self[2]
 
     @property
-    def CLA(self):
-        return self.__content[0]
+    def P2(self) -> ByteString:
+        return self[3]
 
     @property
-    def INS(self):
-        return self.__content[1]
-
-    @property
-    def P1(self):
-        return self.__content[2]
-
-    @property
-    def P2(self):
-        return self.__content[3]
-
-    @property
-    def Lc(self):
+    def Lc(self) -> ByteString:
         match self.__case:
             case CommandCase.Case1 | CommandCase.Case2S | CommandCase.Case2E:
                 raise ValueError(
                     F'Command APDU has no Lc field ({self.case.value})')
-            case CommandCase.Case3S | CommandCase.Case4S | CommandCase.Case3E | CommandCase.Case4E:
-                return len(self.data)
+
+            case CommandCase.Case3S | CommandCase.Case4S:
+                return self[4]
+
+            case CommandCase.Case3E | CommandCase.Case4E:
+                return self[4:7]
 
     @property
-    def data(self):
+    def data_field(self) -> ByteString:
         match self.case:
             case CommandCase.Case1 | CommandCase.Case2S | CommandCase.Case2E:
                 raise ValueError(
                     F'Command APDU has no Data field ({self.case.value})')
+
             case CommandCase.Case3S:
-                return self.__content[5:]
+                return self[5:]
+
             case CommandCase.Case4S:
-                return self.__content[5:-1]
+                return self[5:-1]
+
             case CommandCase.Case3E:
-                return self.__content[7:]
+                return self[7:]
+
             case CommandCase.Case4E:
-                return self.__content[7:-2]
+                return self[7:-2]
 
     @property
-    def Le(self):
+    def Le(self) -> ByteString:
         match self.case:
             case CommandCase.Case1 | CommandCase.Case3S | CommandCase.Case3E:
                 raise ValueError(
                     F'Command APDU has no Le field ({self.case.value})')
+
             case CommandCase.Case2S | CommandCase.Case4S:
-                if self.__content[-1] == 0x00:
-                    return 256
-                else:
-                    return self.__content[-1]
+                return self[-1]
+
             case CommandCase.Case2E | CommandCase.Case4E:
-                if list(self.__content[-2:]) == [0x00, 0x00]:
-                    return 65536
-                else:
-                    return int.from_bytes(self.__content[-2:], byteorder='big')
+                return self[-2:]
 
-    def __str__(self):
-        str = F"{self.__class__.__name__} ({self.case.value}): CLA={self.CLA:02X}, INS={self.INS:02X}, P1={self.P1:02X}, P2={self.P2:02X}"
-
+    def updated_Ne(self, Ne: int) -> CommandApdu:
         match self.case:
-            case CommandCase.Case1:
-                return str
+            case CommandCase.Case1 | CommandCase.Case3S | CommandCase.Case3E:
+                raise ValueError(
+                    F'Command APDU has no Le field ({self.case.value})')
+
             case CommandCase.Case2S:
-                return str + F", Le={self.Le:02X}"
-            case CommandCase.Case2E:
-                return str + F", Le={self.Le:06X}"
-            case CommandCase.Case3S:
-                return str + F", Lc={self.Lc:02X}, DATA={_to_hstr(self.data)}"
-            case CommandCase.Case3E:
-                return str + F", Lc={self.Lc:06X}, DATA={_to_hstr(self.data)}"
+                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, data_field=None, Ne=Ne)
+
             case CommandCase.Case4S:
-                return str + F", Lc={self.Lc:02X}, DATA={_to_hstr(self.data)}, Le={self.Le:02X}"
-            case CommandCase.Case4E:
-                return str + F", Lc={self.Lc:06X}, DATA={_to_hstr(self.data)}, Le={self.Le:04X}"
+                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, data_field=self.data_field, Ne=Ne)
 
-    def update_Le(self, Le: str):
-        match self.case:
-            case CommandCase.Case1 | CommandCase.Case3S | CommandCase.Case3E:
+            case CommandCase.Case2E | CommandCase.Case4E:
                 raise ValueError(
-                    F'Command APDU has no Le field ({self.case.value})')
-
-            case CommandCase.Case2S | CommandCase.Case2E:
-                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, Le=int(Le, 16))
-
-            case CommandCase.Case4S | CommandCase.Case4E:
-                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, data=list(self.data), Le=int(Le, 16))
-
-    def with_updated_Le(self, Le: int):
-        match self.case:
-            case CommandCase.Case1 | CommandCase.Case3S | CommandCase.Case3E:
-                raise ValueError(
-                    F'Command APDU has no Le field ({self.case.value})')
-
-            case CommandCase.Case2S | CommandCase.Case2E:
-                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, Le=Le)
-
-            case  CommandCase.Case4S | CommandCase.Case4E:
-                return CommandApdu(self.CLA, self.INS, self.P1, self.P2, data=list(self.data), Le=Le)
+                    F"Cannot update Le with APDU {self.case.value}")
 
 
-class StatusBytes:
-    def __init__(self, sw12: str):
-        self.__list = _to_intlist(sw12, "StatusBytes.__init__()", "sw12")
-        if len(self.__list) != 2:
-            raise ValueError(F"Expected 2 bytes, received: {sw12}")
+def APDU(apdu: str | ByteString) -> CommandApdu:
+    match apdu:
+        case str():
+            _apdu = ByteString(apdu)
+        case ByteString():
+            _apdu = apdu
+        case _:
+            raise TypeError(
+                F"APDU(): type {type(apdu)} not supported for argument apdu")
 
-        first_digit = self.__list[0] >> 4
-        if first_digit not in [0x6, 0x9]:
-            raise ValueError(F"Expected 6XXX or 9XXX value, received: {sw12}")
+    header = _apdu[0:4].blocks(1)
+    match len(_apdu):
+        case l if l < 4:
+            raise ValueError(
+                F'APDU(): wrong Command APDU length, expected 4 or more bytes but received {_apdu}')
 
-        if self.__list[0] == 0x60:
-            raise ValueError(F"60XX in valid, received: {sw12}")
+        case 4:
+            # Case 1
+            return CommandApdu(*header, data_field=None, Ne=None)
 
-        match self.__list:
-            case [0x90, 0x00]:
-                self.__state = ResponseProcessingState.Normal
-                self.__meaning = 'No further qualification'
-            case [0x61, _]:
-                self.__state = ResponseProcessingState.Normal
-                self.__meaning = 'SW2 encodes the number of data bytes still available'
-            case [0x62, sw2]:
-                self.__state = ResponseProcessingState.Warning
-                self.__meaning = {0x00: 'No information given',
-                                  0x81: 'Part of returned data may be corrupted',
-                                  0x82: 'End of file or record reached before reading Ne bytes',
-                                  0x83: 'Selected file deactivated',
-                                  0x84: 'File control information not formatted according to ISO7816-4 5.3.3',
-                                  0x85: 'Selected file in termination state',
-                                  0x86: 'No input data available from a sensor on the card'}.get(sw2, 'State of non-volatile memory is unchanged')
-            case [0x63, sw2]:
-                self.__state = ResponseProcessingState.Warning
-                self.__meaning = {0x00: 'No information given',
-                                  0x81: 'File filled up by the last '}.get(sw2, 'State of non-volatile memory has changed(further qualification in SW2)')
-            case [0x64, sw2]:
-                self.__state = ResponseProcessingState.ExecutionError
-                self.__meaning = {0x00: 'Execution error',
-                                  0x01: 'Immediate response required by the card'}.get(sw2, 'State of non-volatile memory is unchanged (further qualification in SW2)')
-            case [0x65, sw2]:
-                self.__state = ResponseProcessingState.ExecutionError
-                self.__meaning = {0x00: 'No information given',
-                                  0x81: 'Memory failure'}.get(sw2, 'State of non-volatile memory has changed (further qualification in SW2)')
-            case [0x66, _]:
-                self.__state = ResponseProcessingState.ExecutionError
-                self.__meaning = 'Security-related issues'
-            case [0x67, 0x00]:
-                self.__state = ResponseProcessingState.CheckingError
-                self.__meaning = 'Wrong length; no further indication'
-            case [0x68, sw2]:
-                self.__state = ResponseProcessingState.CheckingError
-                self.__meaning = {0x00: 'No information given',
-                                  0x81: 'Logical channel not supported',
-                                  0x82: 'Secure messaging not supported',
-                                  0x83: 'Last command of the chain expected',
-                                  0x84: 'Command chaining not supported'}.get(sw2, 'Functions in CLA not supported (further qualification in SW2)')
-            case [0x69, sw2]:
-                self.__state = ResponseProcessingState.CheckingError
-                self.__meaning = {0x00: 'No information given',
-                                  0x81: 'Command incompatible with file structure',
-                                  0x82: 'Security status not satisfied',
-                                  0x83: 'Authentication method blocked',
-                                  0x84: 'Reference data not usable',
-                                  0x85: 'Conditions of use not satisfied',
-                                  0x86: 'Command not allowed (no current EF)',
-                                  0x87: 'Expected secure messaging data objects missing',
-                                  0x88: 'Incorrect secure messaging data objects'}.get(sw2, 'Command not allowed (further qualification in SW2)')
-            case [0x6A, _]:
-                self.__state = ResponseProcessingState.CheckingError
-                self.__meaning = 'Wrong parameters P1-P2 (further qualification in SW2)'
-            case [0x6B, 0x00]:
-                self.__state = ResponseProcessingState.CheckingError
-                self.__meaning = 'Wrong parameters P1-P2'
-            case [0x6C, _]:
-                self.__state = ResponseProcessingState.CheckingError
-                self.__meaning = 'Wrong Le field; SW2 encodes the exact number of available data bytes'
-            case [0x6D, 0x00]:
-                self.__state = ResponseProcessingState.CheckingError
-                self.__meaning = 'Instruction code not supported or invalid'
-            case [0x6E, 0x00]:
-                self.__state = ResponseProcessingState.CheckingError
-                self.__meaning = 'Class not supported'
-            case [0x6F, 0x00]:
-                self.__state = ResponseProcessingState.CheckingError
-                self.__meaning = 'No precise diagnosis'
+        case 5:
+            # Case 2S
+            Ne = 256 if _apdu[4] == '00' else int(_apdu[4])
+            return CommandApdu(*header, data_field=None, Ne=Ne)
 
-    @property
-    def state(self):
-        return self.__state
+        case _:
+            if _apdu[4] != '00':
+                if len(_apdu) == 5 + int(_apdu[4]):
+                    # Case 3S
+                    return CommandApdu(*header, data_field=_apdu[5:], Ne=None)
 
-    @property
-    def meaning(self):
-        return self.__meaning
+                elif len(_apdu) == 5 + int(_apdu[4]) + 1:
+                    # Case 4S
+                    Ne = 256 if _apdu[4] == '00' else int(_apdu[4])
+                    return CommandApdu(*header, data_field=_apdu[5:], Ne=Ne)
 
-
-class ResponseApdu:
-    def __init__(self, apdu_str: str):
-        self.__list = _to_intlist(
-            apdu_str, "ResponseApdu.__init__()", "apdu_str")
-
-    @classmethod
-    def from_list(cls, response: list[int]):
-        return cls(_to_hstr(response))
-
-    @property
-    def list(self):
-        return self.__list
-
-    @property
-    def string(self):
-        return _to_hstr(self.__list)
-
-    def get_field(self, field: ResponseField) -> str:
-        match field:
-            case ResponseField.Trailer | ResponseField.SW12:
-                return _to_hstr(self.__list[-2:])
-
-            case ResponseField.SW1:
-                return F"{self.__list[-2]:02X}"
-
-            case ResponseField.SW2:
-                return F"{self.__list[-1]:02X}"
-
-            case ResponseField.Body | ResponseField.Data:
-                if len(self.__list) > 2:
-                    return _to_hstr(self.__list[0:-2])
                 else:
                     raise ValueError(
-                        'Wrong Response APDU field: no response body')
+                        F'APDU(): wrong length, expected {5+int(_apdu[4])} bytes for Case 3s or {5+int(_apdu[4])+1} bytes for Case 4s but received {len(_apdu)} bytes instead')
+
+            else:
+                # Extended length cases
+                if len(_apdu) == 7:
+                    # Case 2E
+                    Ne = 65536 if _apdu[4] == '00' else int(_apdu[4])
+                    return CommandApdu(*header, data_field=None, Ne=Ne)
+
+                elif len(_apdu) == 7 + int(_apdu[5:7]):
+                    # Case 3E
+                    return CommandApdu(*header, data_field=_apdu[7:], Ne=None)
+
+                elif len(_apdu) == 7 + int(_apdu[5:7]) + 2:
+                    # Case 4E
+                    Ne = 65536 if _apdu[-2:] == '0000' else int(_apdu[-2:])
+                    return CommandApdu(*header, data_field=_apdu[7:], Ne=None)
+
+                else:
+                    raise ValueError(
+                        F'APDU(): wrong Command APDU length: expected {7 + int(_apdu[5:7])} bytes for Case 3e or {7 + int(_apdu[5:7]) + 2} bytes for Case 4e but received {len(_apdu)} bytes instead')
+
+
+class StatusBytes(ByteString):
+    def __init__(self, sw12: ByteString):
+        if len(sw12) != 2:
+            raise ValueError(F"Expected 2 bytes, received: {sw12}")
+
+        if not (sw12.startswith('6') or sw12.startswith('9')):
+            raise ValueError(F"Expected 6XXX or 9XXX value, received: {sw12}")
+
+        if sw12.startswith('60'):
+            raise ValueError(F"60XX in invalid, received: {sw12}")
+
+        super().__init__(str(sw12))
 
     @property
-    def data(self) -> str:
-        return self.get_field(ResponseField.Data)
+    def state(self) -> ResponseProcessingState:
+        match self:
+            case '9000':
+                return ResponseProcessingState.Normal
+            case sw12 if sw12.startswith('61'):
+                return ResponseProcessingState.Normal
+
+            case sw12 if sw12.startswith('62') or sw12.startswith('63'):
+                return ResponseProcessingState.Warning
+
+            case sw12 if sw12.startswith('64') or sw12.startswith('65') or sw12.startswith('66'):
+                return ResponseProcessingState.ExecutionError
+
+            case sw12 if sw12.startswith('67') or sw12.startswith('68') or sw12.startswith('69') or sw12.startswith('6A') or sw12.startswith('6B') or sw12.startswith('6C') or sw12.startswith('6D') or sw12.startswith('6E') or sw12.startswith('6F'):
+                return ResponseProcessingState.CheckingError
+
+            case _:
+                raise ValueError(F"Unknown processing state: {self}")
 
     @property
-    def SW12(self) -> str:
-        return self.get_field(ResponseField.SW12)
+    def meaning(self) -> str:
+        match self:
+            case '9000':
+                return 'No further qualification'
+
+            case sw12 if sw12.startswith('61'):
+                return 'SW2 encodes the number of data bytes still available'
+
+            case sw12 if sw12.startswith('62'):
+                match sw12[1]:
+                    case '00':
+                        return 'No information given'
+                    case '81':
+                        return 'Part of returned data may be corrupted'
+                    case '82':
+                        return 'End of file or record reached before reading Ne bytes'
+                    case '83':
+                        return 'Selected file deactivated'
+                    case '84':
+                        return 'File control information not formatted according to ISO7816-4 5.3.3'
+                    case '85':
+                        return 'Selected file in termination state'
+                    case '86':
+                        return 'No input data available from a sensor on the card'
+                    case _:
+                        return 'State of non-volatile memory is unchanged'
+
+            case sw12 if sw12.startswith('63'):
+                match sw12[1]:
+                    case '00':
+                        return 'No information given'
+                    case '81':
+                        return 'File filled up by the last write'
+                    case sw2 if sw2.startswith('C'):
+                        return F'Counter = {int(str(sw2), 16)-12}'
+                    case _:
+                        return 'State of non-volatile memory has changed(further qualification in SW2)'
+
+            case sw12 if sw12.startswith('64'):
+                match sw12[1]:
+                    case '00':
+                        return 'Execution error'
+                    case '01':
+                        return 'Immediate response required by the card'
+                    case sw2 if int(str(sw2), 16) >= 0x02 and int(str(sw2), 16) <= 0x80:
+                        return 'Triggering by the card'
+                    case _:
+                        return 'Unknown meaning'
+
+            case sw12 if sw12.startswith('65'):
+                match sw12[1]:
+                    case '00':
+                        return 'No information given'
+                    case '81':
+                        return 'Memory failure'
+                    case _:
+                        return 'Unknown meaning'
+
+            case sw12 if sw12.startswith('66'):
+                return 'Security-related issues'
+
+            case '6700':
+                return 'Wrong length; no further indication'
+
+            case sw12 if sw12.startswith('68'):
+                match sw12[1]:
+                    case '00':
+                        return 'No information given'
+                    case '81':
+                        return 'Logical channel not supported'
+                    case '82':
+                        return 'Secure messaging not supported'
+                    case '83':
+                        return 'Last command of the chain expected'
+                    case '84':
+                        return 'Command chaining not supported'
+                    case _:
+                        return 'Functions in CLA not supported (further qualification in SW2)'
+
+            case sw12 if sw12.startswith('69'):
+                match sw12[1]:
+                    case '00':
+                        return 'No information given'
+                    case '81':
+                        return 'Command incompatible with file structure'
+                    case '82':
+                        return 'Security status not satisfied'
+                    case '83':
+                        return 'Authentication method blocked'
+                    case '84':
+                        return 'Reference data not usable'
+                    case '85':
+                        return 'Conditions of use not satisfied'
+                    case '86':
+                        return 'Command not allowed (no current EF)'
+                    case '87':
+                        return 'Expected secure messaging data objects missing'
+                    case '88':
+                        return 'Incorrect secure messaging data objects'
+                    case _:
+                        return 'Command not allowed (further qualification in SW2)'
+
+            case sw12 if sw12.startswith('6A'):
+                match sw12[1]:
+                    case '00':
+                        return 'No information given'
+                    case '80':
+                        return 'Incorrect parameters in the command data field'
+                    case '81':
+                        return 'Function not supported'
+                    case '82':
+                        return 'File or application not found'
+                    case '83':
+                        return 'Record not found'
+                    case '84':
+                        return 'Not enough memory space in the file'
+                    case '85':
+                        return 'Nc inconsistent with TLV structure'
+                    case '86':
+                        return 'Incorrect parameters P1-P2'
+                    case '87':
+                        return 'Nc inconsistent with parameters P1-P2'
+                    case '88':
+                        return 'Referenced data or reference data not found (exact meaning depending on the command)'
+                    case '89':
+                        return 'File already exists'
+                    case '8A':
+                        return 'DF name already exists'
+                    case _:
+                        return 'Wrong parameters P1-P2 (further qualification in SW2)'
+
+            case '6B00':
+                return 'Wrong parameters P1-P2'
+
+            case sw12 if sw12.startswith('6C'):
+                return 'Wrong Le field; SW2 encodes the exact number of available data bytes'
+
+            case '6D00':
+                return 'Instruction code not supported or invalid'
+
+            case '6E00':
+                return 'Class not supported'
+
+            case '6F00':
+                return 'No precise diagnosis'
+
+            case _:
+                return 'Unkown meaning'
+
+
+class ResponseApdu(ByteString):
+    def __init__(self, response: ByteString):
+        if len(response) < 2:
+            raise ValueError(
+                F"Expecting reponse of at least 2 bytes, received: {response}")
+        super().__init__(str(response))
 
     @property
-    def SW1(self) -> str:
-        return self.get_field(ResponseField.SW1)
+    def body(self) -> ByteString:
+        if len(self) > 2:
+            return self[0:-2]
+        else:
+            raise ValueError(F"No response body")
 
     @property
-    def SW2(self) -> str:
-        return self.get_field(ResponseField.SW2)
+    def SW12(self) -> StatusBytes:
+        return StatusBytes(self[-2:])
+
+    @property
+    def SW1(self) -> ByteString:
+        return self.SW12[0]
+
+    @property
+    def SW2(self) -> ByteString:
+        return self.SW12[1]
 
     @property
     def StatusBytes(self) -> StatusBytes:
-        return StatusBytes(self.get_field(ResponseField.SW12))
-
-    def __str__(self):
-        return _to_hstr(self.__list)
-
-
-#
-# Helper functions
-#
-def _Lc(data: list[int]):
-    Lc = len(data)
-    if Lc < 256:
-        return [Lc]
-
-    if Lc < 65536:
-        return [0x00, Lc >> 8, Lc & 0x00FF]
-
-    raise ValueError(F'Data length should be <65,536: actual length = {Lc}')
-
-
-def _dict_to_string(apdu: dict):
-    # If 'apdu' includes a header, it will be used directly. If not, the header will be constructed with CLA, INS, P1, and P2
-    if CommandField.Header in apdu:
-        header = apdu[CommandField.Header]
-    else:
-        header = apdu[CommandField.Class] + apdu[CommandField.Instruction] + \
-            apdu[CommandField.P1] + apdu[CommandField.P2]
-
-    # If 'apdu' includes a body, it will be used directly. If not, the body will be constructed with the optional DATA and Le fields
-    body = ''
-    if CommandField.Body in apdu:
-        body = apdu[CommandField.Body]
-    else:
-        if CommandField.Data in apdu:
-            _DATA = apdu[CommandField.Data]
-            body = F"{''.join([F'{l:02X}' for l in _Lc(_to_intlist(_DATA))])}{_DATA}"
-
-        if CommandField.Le in apdu:
-            body += apdu[CommandField.Le]
-
-    return header + body
-
-
-def _byte_to_string(byte, command_name='()', byte_name='') -> str:
-    if (byte < 0x00) or (byte > 0xFF):
-        raise ValueError(
-            F'{command_name}: {byte_name} out of bound, received {byte:X}')
-    else:
-        return F"{byte:02X}"
+        return self.SW12

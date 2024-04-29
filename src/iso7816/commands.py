@@ -3,13 +3,14 @@
 
 # Standard library imports
 from enum import IntEnum
+from typing import Optional
 
 # Third party imports
 
 # Local application imports
-from common.hstr import clean as _clean
-from iso7816.apdu import CommandApdu
-from iso7816.encodings import SecureMessaging, Chaining, CLA
+from common.binary import ByteString
+from .apdu import CommandApdu
+from .encodings import CLA
 
 
 # Enum Definitions
@@ -41,38 +42,38 @@ class FileControlInformation(IntEnum):
 # Commands for interchange
 #
 class GetResponse(CommandApdu):
-    def __init__(self, CLA: CLA, Le: int):
-        super().__init__(CLA.value, 0xC0, 0x00, 0x00, Le=Le)
+    def __init__(self, class_byte: ByteString, Ne: int):
+        header = (CLA(class_byte) + ByteString('C00000')).blocks(1)
+        super().__init__(*header, data_field=None, Ne=Ne)
 
 
-def GET_RESPONSE(CLA: CLA, Le: int) -> GetResponse:
-    return GetResponse(CLA, Le)
+GET_RESPONSE = GetResponse
 
 
 class Select(CommandApdu):
     def __init__(self,
-                 secure_messaging: SecureMessaging,
-                 chaining: Chaining,
-                 logical_channel: int,
-                 selection: Selection,
-                 file_occurrence: FileOccurrence,
-                 fci: FileControlInformation,
-                 data: list[int] = None,
-                 Le: int = None):
-        cla: int = CLA(secure_messaging, chaining, logical_channel).value
-        INS: int = 0xA4
-        P1: int = selection.value
-        P2: int = file_occurrence.value + fci.value
+                 class_byte: ByteString,
+                 P1: ByteString,
+                 P2: ByteString,
+                 data_field: Optional[ByteString],
+                 Ne: Optional[int]):
+        if len(P1) != 1:
+            raise ValueError(F"P1 should be 1 byte, received: {P1}")
+        if len(P2) != 1:
+            raise ValueError(F"P2 should be 1 byte, received: {P2}")
 
-        super().__init__(cla, INS, P1, P2, data=data, Le=Le)
+        header = (CLA(class_byte) + ByteString('A4') + P1 + P2).blocks(1)
+
+        super().__init__(*header, data_field=data_field, Ne=Ne)
 
 
-def SELECT(secure_messaging: SecureMessaging,
-           chaining: Chaining,
-           logical_channel: int,
+def SELECT(class_byte: ByteString,
            selection: Selection,
            file_occurrence: FileOccurrence,
            fci: FileControlInformation,
-           data: list[int] = None,
-           Le: int = None) -> Select:
-    return Select(secure_messaging, chaining, logical_channel, selection, file_occurrence, fci, data, Le)
+           data_field: Optional[ByteString],
+           Ne: Optional[int]) -> Select:
+    P1 = ByteString(F"{selection.value:02X}")
+    P2 = ByteString(F"{file_occurrence.value + fci.value:02X}")
+
+    return Select(class_byte, P1, P2, data_field, Ne)
