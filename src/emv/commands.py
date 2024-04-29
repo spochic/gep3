@@ -9,7 +9,8 @@ from enum import StrEnum
 # Local application imports
 # from common.ber import encode
 from common.binary import ByteString
-from iso7816.apdu import CommandApdu, CommandField, create_command_APDU
+from iso7816.apdu import CommandApdu
+from iso7816.encodings import Lc, Le
 
 
 # Enum Definitions
@@ -33,26 +34,29 @@ class GetDataObject(StrEnum):
 # Command APDUs defined by EMV
 class Select(CommandApdu):
     def __init__(self, aid: ByteString):
-        super().__init__(ByteString(
-            F'00A40400{len(aid):02X}') + aid + ByteString('00'))
+        header = ByteString('00A40400').blocks(1)
+        super().__init__(*header,  data_field=aid, Ne=256)
 
 
 def SELECT(aid: ByteString | ApplicationIdentifier) -> Select:
-    """SELECT(): generate CommandApdu for SELECT command
+    """SELECT(): generate CommandApdu for SELECT command (EMV)
     """
-    if isinstance(aid, ApplicationIdentifier):
-        return Select(ByteString(aid.value))
-    elif isinstance(aid, ByteString):
-        return Select(aid)
-    else:
-        raise TypeError(
-            F"emv.SELECT(): aid should be of type ByteString or ApplicationIdentifier, received: {type(aid)}")
+    match aid:
+        case ApplicationIdentifier():
+            application_identifier = ByteString(aid.value)
+        case ByteString():
+            application_identifier = aid
+        case _:
+            raise TypeError(
+                F"SELECT(): aid should be of type ByteString or ApplicationIdentifier, received: {type(aid)}")
+
+    return Select(application_identifier)
 
 
 class GetProcessingOptions(CommandApdu):
     def __init__(self, pdol: ByteString):
-        super().__init__(ByteString(
-            F'80A80000{len(pdol):02X}') + pdol + ByteString('00'))
+        header = ByteString('80A80000').blocks(1)
+        super().__init__(*header, data_field=pdol, Ne=256)
 
 
 def GET_PROCESSING_OPTIONS(pdol: ByteString | None) -> GetProcessingOptions:
@@ -69,7 +73,8 @@ GPO = GET_PROCESSING_OPTIONS
 
 class ReadRecord(CommandApdu):
     def __init__(self, SFI: int, record: int):
-        super().__init__(ByteString(F"00B2{record:02X}{SFI*8+4}00"))
+        header = ByteString(F"00B2{record:02X}{SFI*8+4}00").blocks(1)
+        super().__init__(*header, data_field=None, Ne=None)
 
 
 def READ_RECORD(SFI: int, record: int) -> ReadRecord:
@@ -80,7 +85,8 @@ def READ_RECORD(SFI: int, record: int) -> ReadRecord:
 
 class GetData(CommandApdu):
     def __init__(self, tag: ByteString):
-        super().__init__(ByteString(F'80CA{tag}00'))
+        header = ByteString(F"80CA{tag}").blocks(1)
+        super().__init__(*header, data_field=None, Ne=256)
 
 
 def GET_DATA(tag: ByteString | GetDataObject) -> GetData:
