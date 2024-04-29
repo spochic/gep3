@@ -2,19 +2,21 @@
 """
 
 # Standard library imports
-from enum import Enum, IntEnum
-from typing import Union
+from enum import IntEnum, StrEnum
+from typing import Optional
+
 
 # Third party imports
 
 # Local application imports
-from common.hstr import clean as _clean, to_intlist as _to_intlist
-from globalplatform.encodings import SecureMessaging, CLA as GP_CLA
-from iso7816 import CommandApdu, CommandField, CLA as ISO_CLA, Chaining, SecureMessaging as ISO_SecureMessaging
+from common.binary import ByteString
+from .encodings import ClassByte
+from iso7816.apdu import CommandApdu
+from iso7816.encodings import ClassByte as ISO_ClassByte
 
 
 # Enum Definitions
-class GetDataObject(Enum):
+class GetDataObject(StrEnum):
     ListOfApplications = '2F00'
     IssuerIdentificationNumber = '0042'
     CardImageNumber = '0045'
@@ -29,62 +31,67 @@ class GetDataObject(Enum):
 
 
 class FileOccurrence(IntEnum):
-    FirstOrOnlyOccurrence = 0x0
-    NextOccurrence = 0x2
+    FirstOrOnlyOccurrence = 0x00
+    NextOccurrence = 0x02
 
 
-class ApplicationIdentifier(Enum):
+class ApplicationIdentifier(StrEnum):
     GlobalPlatformSecurityDomain = 'A000000151000000'
     Default = ''
 
 
 # Command APDUs defined by GP
 class GetData(CommandApdu):
-    def __init__(self, secure_messaging: SecureMessaging, logical_channel: int, tag: Union[str, GetDataObject]):
-        if isinstance(tag, GetDataObject):
-            P1 = int(tag.value[0:2], 16)
-            P2 = int(tag.value[2:4], 16)
-        elif isinstance(tag, str):
-            P1 = int(_clean(tag[0:2]), 16)
-            P2 = int(_clean(tag[2:4]), 16)
+    def __init__(self, CLA: ClassByte, tag: ByteString, data: Optional[ByteString]):
+        header = (CLA + ByteString('CA') + tag).blocks(1)
+        if data is None:
+            super().__init__(*header, data_field=None, Ne=256)
         else:
-            raise TypeError(
-                F"globalplatform.GetData(): tag should be of type str or GetDataObject, received: {type(tag)}")
-
-        super().__init__(GP_CLA(secure_messaging, logical_channel).value, 0xCA, P1, P2, Le=0x100)
+            super().__init__(*header, data_field=data, Ne=256)
 
 
-def GET_DATA(secure_messaging: SecureMessaging, logical_channel: int, tag: Union[str, GetDataObject]) -> GetData:
+def GET_DATA(CLA: ClassByte, tag: ByteString | GetDataObject, data: Optional[ByteString]) -> GetData:
     """GET_DATA: generate APDU for GET DATA command
     """
-    return GetData(secure_messaging, logical_channel, tag)
+    if isinstance(tag, GetDataObject):
+        if len(tag.value) == 2:
+            P1 = ByteString('00')
+            P2 = ByteString(tag.value)
+        else:
+            P1 = ByteString(tag.value[0:2])
+            P2 = ByteString(tag.value[2:4])
+
+    elif isinstance(tag, ByteString):
+        P1 = tag[0:2]
+        P2 = tag[2:4]
+
+    else:
+        raise TypeError(
+            F"globalplatform.GET_DATA(): tag should be of type ByteString or GetDataObject, received: {type(tag)}")
+
+    return GetData(CLA, P1+P2, data)
 
 
 class Select(CommandApdu):
-    def __init__(self, logical_channel: int, file_occurrence: FileOccurrence, application_identifier: Union[str, ApplicationIdentifier]):
-        cla = ISO_CLA(ISO_SecureMessaging.No,
-                      Chaining.LastOrOnly, logical_channel).value
-        ins = 0xA4
-        p1 = 0x04
-        p2 = file_occurrence.value
-        Le = 0x100
+    def __init__(self, CLA: ISO_ClassByte, file_occurrence: FileOccurrence, aid: ByteString | ApplicationIdentifier):
+        header = (
+            CLA + ByteString(F'A404{file_occurrence:02X}')).blocks(1)
 
-        if isinstance(application_identifier, ApplicationIdentifier):
-            if application_identifier == ApplicationIdentifier.Default:
-                super().__init__(cla, ins, p1, p2, Le=Le)
-            else:
-                data = _to_intlist(application_identifier.value)
-                super().__init__(cla, ins, p1, p2, data=data, Le=Le)
-
-        elif isinstance(application_identifier, str):
-            data = _to_intlist(application_identifier,
-                               'SELECT()', 'application_identifier')
-            super().__init__(cla, ins, p1, p2, data=data, Le=Le)
-
-        else:
-            raise TypeError(
-                F"globalplatform.Select(): application_identifier should be of type str or ApplicationIdentifier, received: {type(application_identifier)}")
+        match aid:
+            case ApplicationIdentifier():
+                if aid == ApplicationIdentifier.Default:
+                    super().__init__(*header, data_field=None, Ne=256)
+                else:
+                    super().__init__(*header, data_field=ByteString(aid.value), Ne=256)
+            case ByteString():
+                super().__init__(*header, data_field=aid, Ne=256)
+            case _:
+                raise TypeError(
+                    F"Select(): aid should be of type ByteString or ApplicationIdentifier, received: {type(aid)}")
 
 
-def SELECT(logical_channel: int, file_occurrence: FileOccurrence, application_identifier: Union[str, ApplicationIdentifier]) -> Select:
-    return Select(logical_channel, file_occurrence, application_identifier)
+def SELECT(CLA: ISO_ClassByte, file_occurrence: FileOccurrence, aid: ByteString | ApplicationIdentifier) -> Select:
+    """SELECT(): generate CommandApdu for SELECT command (GlobalPlatform)
+    """
+
+    return Select(CLA, file_occurrence, aid)

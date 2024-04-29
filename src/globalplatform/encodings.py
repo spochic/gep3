@@ -2,23 +2,24 @@
 """
 
 # Standard library imports
-from enum import Enum
+from enum import Enum, StrEnum, IntEnum
 
 # Third party imports
 
 # Local application imports
+from common.binary import ByteString
 from common.hstr import clean as _clean
 
 
 # Enum Definitions
-class SecureMessaging(Enum):
-    No = 'No secure messaging'
-    GlobalPlatform = 'Secure messaging - GlobalPlatform proprietary'
-    Iso7816 = 'Secure messaging - ISO7816 standard, command header not processed (no C-MAC)'
-    Iso7816_CMAC = 'Secure messaging - ISO7816 standard, command header authenticated (C-MAC)'
+class SecureMessaging(IntEnum):
+    No = 0x0
+    GlobalPlatform = 0x4
+    Iso7816 = 0x8
+    Iso7816_CMAC = 0xC
 
 
-class CardPersonalizationLifeCycleData(Enum):
+class CardPersonalizationLifeCycleData(StrEnum):
     ICFabricator = "IC Fabricator"
     ICType = "IC Type"
     OperatingSystemIdentifier = "Operating System Identifier"
@@ -40,88 +41,76 @@ class CardPersonalizationLifeCycleData(Enum):
 
 
 # Class Definitions
-class CLA:
+class ClassByte(ByteString):
     def __init__(self, secure_messaging: SecureMessaging, logical_channel: int):
-        if (logical_channel < 0) or (logical_channel > 19):
-            raise ValueError(
-                F'Logical channel number out of bound: should be in [0;19], received {logical_channel}')
+        match logical_channel:
+            case logical_channel if logical_channel < 0:
+                raise ValueError(
+                    F'Logical channel number out of bound: should be in [0;19], received {logical_channel}')
 
-        self.__logical_channel = logical_channel
+            case logical_channel if logical_channel <= 3:
+                # CLA Byte Coding according to Table 11-11
+                _class_byte = 0x80
+                _class_byte += secure_messaging
+                _class_byte += logical_channel
+
+            case logical_channel if logical_channel <= 19:
+                # CLA Byte Coding according to Table 11-12
+                _class_byte = 0xC0 if secure_messaging == SecureMessaging.No else 0xE0
+                _class_byte += 4 + logical_channel
+
+            case _:
+                raise ValueError(
+                    F'Logical channel number out of bound: should be in [0;19], received {logical_channel}')
+
+        super().__init__(_class_byte)
+
         self.__secure_messaging = secure_messaging
-
-    @classmethod
-    def from_value(cls, CLA: int):
-        if (CLA < 0x00) or (CLA > 0xFF):
-            raise ValueError(
-                F'Class byte should out of bound: should be 2 bytes, received {CLA:X}')
-
-        secure_messaging: SecureMessaging
-        logical_channel: int
-
-        # Testing b7
-        if CLA & 0x40 == 0x00:
-            # CLA Byte Coding according to Table 11-11
-            # Testing b4-b3
-            match CLA & 0x0C:
-                case 0x00:
-                    secure_messaging = SecureMessaging.No
-                case 0x04:
-                    secure_messaging = SecureMessaging.GlobalPlatform
-                case 0x08:
-                    secure_messaging = SecureMessaging.Iso7816
-                case 0x0C:
-                    secure_messaging = SecureMessaging.Iso7816_CMAC
-                case _:
-                    # This should not happen
-                    raise ArithmeticError(
-                        F'CLA.from_value() error: CLA = {CLA:02X}')
-
-            logical_channel = CLA & 0x03
-
-        else:
-            # CLA Byte Coding according to Table 11-12
-            # Testing b6
-            if CLA & 0x20 == 0x00:
-                secure_messaging = SecureMessaging.No
-            else:
-                secure_messaging = SecureMessaging.GlobalPlatform
-
-            logical_channel = CLA & 0x0F
-
-        return cls(secure_messaging, logical_channel)
-
-    @classmethod
-    def from_string(cls, CLA: str):
-        return cls.from_value(int(_clean(CLA), 16))
+        self.__logical_channel = logical_channel
 
     @property
-    def value(self) -> int:
-        CLA = 0x00
-
-        if self.__logical_channel <= 3:
-            # CLA Byte Coding according to Table 11-11
-            CLA += 0x80 + self.__logical_channel
-            match self.__secure_messaging:
-                case SecureMessaging.No:
-                    CLA += 0x00
-                case SecureMessaging.GlobalPlatform:
-                    CLA += 0x04
-                case SecureMessaging.Iso7816:
-                    CLA += 0x08
-                case SecureMessaging.Iso7816_CMAC:
-                    CLA += 0x0C
-
-        else:
-            # CLA Byte Coding according to Table 11-12
-            CLA += 0xC0 + self.__logical_channel
-            if self.__secure_messaging != SecureMessaging.No:
-                CLA += 0x20
-
-        return CLA
+    def secure_messaging(self) -> SecureMessaging:
+        return self.__secure_messaging
 
     @property
-    def string(self) -> str:
-        return F"{self.value:02X}"
+    def logical_channel(self) -> int:
+        return self.__logical_channel
+
+
+def CLA(value: int | str | ByteString) -> ClassByte:
+    """CLA(): creates a GlobalPlatform-compliant CLA Byte
+    """
+    match value:
+        case int():
+            class_byte = ByteString(value)
+        case str():
+            class_byte = ByteString(value)
+        case ByteString():
+            class_byte = value
+
+        case _:
+            raise TypeError(
+                F"CLA()| type {type(value)} not supported for argument value")
+
+    if len(class_byte) != 1:
+        raise ValueError(
+            F"CLA()| expecting 1 byte, received {class_byte} bytes")
+
+    if class_byte.is_bit_unset(8):
+        # GP CLA Byte must have b8 set
+        raise ValueError(F"CLA(): expecting b8 = 1, received {class_byte}")
+
+    if class_byte.is_bit_unset(7):
+        # CLA Byte Coding according to Table 11-11
+        secure_messaging = SecureMessaging(int(class_byte.mask(0x0C)))
+        logical_channel = int(class_byte.mask(0x03))
+    else:
+        # CLA Byte Coding according to Table 11-12
+        secure_messaging = SecureMessaging.No if class_byte.is_bit_unset(
+            6) else SecureMessaging.GlobalPlatform
+        logical_channel = 4 + int(class_byte.mask(0x0F))
+
+    return ClassByte(secure_messaging, logical_channel)
 
 
 class CPLC:
