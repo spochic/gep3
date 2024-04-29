@@ -9,6 +9,7 @@ from typing import Iterable, SupportsInt
 from functools import reduce
 from operator import __add__, __xor__, __and__, __or__, __lshift__, __rshift__
 import sys as _sys
+from array import array
 
 # Third party imports
 
@@ -286,7 +287,7 @@ class ByteString(HexString):
         return str(self.data.upper())
 
     def __repr__(self):
-        return F"ByteString('{self}')"
+        return F"ByteString('{self.data.upper()}')"
 
     def __getitem__(self, key) -> ByteString:
         return ByteString(self.bytes[key])
@@ -332,12 +333,16 @@ class ByteString(HexString):
         return bytes.fromhex(self.data)
 
     @property
-    def bit_string(self) -> BitString:
-        return BitString(self.bytes)
+    def list(self):
+        return [int(b) for b in self.bytes]
 
     @property
-    def int_list(self) -> list[int]:
-        return [int(b) for b in self.bytes]
+    def array(self):
+        return array('B', self.bytes)
+
+    @property
+    def bit_string(self) -> BitString:
+        return BitString(self.bytes)
 
     def blocks(self, blocksize: int) -> Iterable[ByteString]:
         nr_blocks = math.ceil(len(self) / blocksize)
