@@ -2,7 +2,6 @@
 """
 
 # Standard library imports
-from enum import IntEnum, StrEnum
 from typing import Optional
 
 
@@ -10,34 +9,9 @@ from typing import Optional
 
 # Local application imports
 from common.binary import ByteString
-from .encodings import ClassByte
 from iso7816.apdu import CommandApdu
 from iso7816.encodings import ClassByte as ISO_ClassByte
-
-
-# Enum Definitions
-class GetDataObject(StrEnum):
-    ListOfApplications = '2F00'
-    IssuerIdentificationNumber = '0042'
-    CardImageNumber = '0045'
-    CardData = '0066'
-    KeyInformationTemplate = '00E0'
-    CardCapabilityInformation = '0067'
-    CurrentSecurityLevel = '00D3'
-    SecurityDomainManagerURL = '5F50'
-    ConfirmationCounter = '00C2'
-    SequenceCounterOfTheDefaultKeyVersionNumber = '00C1'
-    CardProductionLifeCycle = '9F7F'
-
-
-class FileOccurrence(IntEnum):
-    FirstOrOnlyOccurrence = 0x00
-    NextOccurrence = 0x02
-
-
-class ApplicationIdentifier(StrEnum):
-    GlobalPlatformSecurityDomain = 'A000000151000000'
-    Default = ''
+from .encodings import ClassByte, GetDataObject, FileOccurrence, ApplicationIdentifier
 
 
 # Command APDUs defined by GP

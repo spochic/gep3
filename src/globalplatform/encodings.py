@@ -2,7 +2,7 @@
 """
 
 # Standard library imports
-from enum import Enum, StrEnum, IntEnum
+from enum import StrEnum, IntEnum
 
 # Third party imports
 
@@ -38,6 +38,30 @@ class CardPersonalizationLifeCycleData(StrEnum):
     ICPersonalizer = "IC Personalizer"
     ICPersonalizationDate = "IC Personalization Date"
     ICPersonalizationEquipmentIdentifier = "IC Personalization Equipment Identifier"
+
+
+class GetDataObject(StrEnum):
+    ListOfApplications = '2F00'
+    IssuerIdentificationNumber = '0042'
+    CardImageNumber = '0045'
+    CardData = '0066'
+    KeyInformationTemplate = '00E0'
+    CardCapabilityInformation = '0067'
+    CurrentSecurityLevel = '00D3'
+    SecurityDomainManagerURL = '5F50'
+    ConfirmationCounter = '00C2'
+    SequenceCounterOfTheDefaultKeyVersionNumber = '00C1'
+    CardProductionLifeCycle = '9F7F'
+
+
+class FileOccurrence(IntEnum):
+    FirstOrOnlyOccurrence = 0x00
+    NextOccurrence = 0x02
+
+
+class ApplicationIdentifier(StrEnum):
+    GlobalPlatformSecurityDomain = 'A000000151000000'
+    Default = ''
 
 
 # Class Definitions
