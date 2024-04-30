@@ -167,6 +167,19 @@ class CommandApdu(ByteString):
             case CommandCase.Case2E | CommandCase.Case4E:
                 return self[-2:]
 
+    @property
+    def Ne(self) -> int:
+        match self.case:
+            case CommandCase.Case1 | CommandCase.Case3S | CommandCase.Case3E:
+                raise ValueError(
+                    F'Command APDU has no Le field ({self.case.value})')
+
+            case CommandCase.Case2S | CommandCase.Case4S:
+                return 256 if self[-1] == '00' else int(self[-1])
+
+            case CommandCase.Case2E | CommandCase.Case4E:
+                return 65536 if self[-2:] == '0000' else int(self[-2:])
+
     def updated_Ne(self, Ne: int) -> CommandApdu:
         match self.case:
             case CommandCase.Case1 | CommandCase.Case3S | CommandCase.Case3E:
