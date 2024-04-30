@@ -197,7 +197,9 @@ class CommandApdu(ByteString):
                     F"Cannot update Le with APDU {self.case.value}")
 
 
-def APDU(apdu: str | ByteString) -> CommandApdu:
+def CAPDU(apdu: str | ByteString) -> CommandApdu:
+    """CAPDU(): creates a CommandApdu object
+    """
     match apdu:
         case str():
             _apdu = ByteString(apdu)
@@ -205,13 +207,13 @@ def APDU(apdu: str | ByteString) -> CommandApdu:
             _apdu = apdu
         case _:
             raise TypeError(
-                F"APDU(): type {type(apdu)} not supported for argument apdu")
+                F"CAPDU(): type {type(apdu)} not supported for argument apdu")
 
     header = _apdu[0:4].blocks(1)
     match len(_apdu):
         case l if l < 4:
             raise ValueError(
-                F'APDU(): wrong Command APDU length, expected 4 or more bytes but received {_apdu}')
+                F'CAPDU(): wrong Command APDU length, expected 4 or more bytes but received {_apdu}')
 
         case 4:
             # Case 1
@@ -255,7 +257,7 @@ def APDU(apdu: str | ByteString) -> CommandApdu:
 
                 else:
                     raise ValueError(
-                        F'APDU(): wrong Command APDU length: expected {7 + int(_apdu[5:7])} bytes for Case 3e or {7 + int(_apdu[5:7]) + 2} bytes for Case 4e but received {len(_apdu)} bytes instead')
+                        F'RAPDU(): wrong Command APDU length: expected {7 + int(_apdu[5:7])} bytes for Case 3e or {7 + int(_apdu[5:7]) + 2} bytes for Case 4e but received {len(_apdu)} bytes instead')
 
 
 class StatusBytes(ByteString):
@@ -471,3 +473,16 @@ class ResponseApdu(ByteString):
     @property
     def StatusBytes(self) -> StatusBytes:
         return self.SW12
+
+
+def RAPDU(apdu: str | ByteString) -> ResponseApdu:
+    """RAPDU(): creates a CommandApdu object
+    """
+    match apdu:
+        case str():
+            return ResponseApdu(ByteString(apdu))
+        case ByteString():
+            return ResponseApdu(apdu)
+        case _:
+            raise TypeError(
+                F"RAPDU(): type {type(apdu)} not supported for argument apdu")
