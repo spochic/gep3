@@ -28,6 +28,30 @@ class Chaining(StrEnum):
     NotLast = 'The command is not the last command of a chain'
 
 
+class Selection(IntEnum):
+    SelectMForDForEF = 0x00
+    SelectChildDF = 0x01
+    SelectEFUnderCurrentDF = 0x02
+    SelectParentDFOfCurrentDF = 0x03
+    SelectByDFName = 0x04
+    SelectFromMF = 0x08
+    SelectFromCurrentDF = 0x09
+
+
+class FileOccurrence(IntEnum):
+    FirstOrOnlyOccurrence = 0x0
+    LastOccurrence = 0x1
+    NextOccurrence = 0x2
+    PreviousOccurrence = 0x3
+
+
+class FileControlInformation(IntEnum):
+    ReturnFCITemplate = 0x00
+    ReturnFCPTempalte = 0x10
+    ReturnFMDTemplate = 0x20
+    NoResponseOrProprietary = 0x30
+
+
 # Class definitions
 class ClassByte(ByteString):
     def __init__(self, secure_messaging: SecureMessaging, logical_channel: int, command_chaining: Chaining):

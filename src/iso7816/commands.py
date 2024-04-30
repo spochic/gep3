@@ -2,7 +2,6 @@
 """
 
 # Standard library imports
-from enum import IntEnum
 from typing import Optional
 
 # Third party imports
@@ -10,32 +9,7 @@ from typing import Optional
 # Local application imports
 from common.binary import ByteString
 from .apdu import CommandApdu
-from .encodings import CLA
-
-
-# Enum Definitions
-class Selection(IntEnum):
-    SelectMForDForEF = 0x00
-    SelectChildDF = 0x01
-    SelectEFUnderCurrentDF = 0x02
-    SelectParentDFOfCurrentDF = 0x03
-    SelectByDFName = 0x04
-    SelectFromMF = 0x08
-    SelectFromCurrentDF = 0x09
-
-
-class FileOccurrence(IntEnum):
-    FirstOrOnlyOccurrence = 0x0
-    LastOccurrence = 0x1
-    NextOccurrence = 0x2
-    PreviousOccurrence = 0x3
-
-
-class FileControlInformation(IntEnum):
-    ReturnFCITemplate = 0x00
-    ReturnFCPTempalte = 0x10
-    ReturnFMDTemplate = 0x20
-    NoResponseOrProprietary = 0x30
+from .encodings import CLA, Selection, FileOccurrence, FileControlInformation
 
 
 #
