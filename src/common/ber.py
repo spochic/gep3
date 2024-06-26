@@ -38,28 +38,28 @@ class Tag(ByteString):
                 F"Unknown bytes '{remainder}' after tag '{tag}'")
 
         if len(self) == 1:
-            if (tag_number := self.int & 0x1F) == 0x1F:
+            if (tag_number := int(self) & 0x1F) == 0x1F:
                 raise ValueError(
                     F"Tag(): 1-byte tag should not have b5-b1 = 11111, received: {self}")
             else:
                 self.__tag_number = tag_number
                 return
 
-        if (self[0].int & 0x1F) != 0x1F:
+        if (int(self[0]) & 0x1F) != 0x1F:
             raise ValueError(
                 F"Tag(): first byte of multi-byte tags should have b5-b1 = 11111, received: {self}")
 
         if len(self) > 2:
-            if any(map(lambda n: (n & 0x80) == 0x00, self.int_list[1:-1])):
+            if any(map(lambda n: (n & 0x80) == 0x00, self.list[1:-1])):
                 raise ValueError(
                     F"Tag(): All but last tag byte should have b8 = 1, received: {self}")
 
-        if (self[-1].int & 0x80) != 0x00:
+        if (int(self[-1]) & 0x80) != 0x00:
             raise ValueError(
                 F"Tag(): Last tag byte should have b8 = 0, received {self}")
 
-        __subsequent_bytes = map(lambda n: n & 0x7F, self.int_list[2:])
-        __tag_number = self[1].int & 0x7F
+        __subsequent_bytes = map(lambda n: n & 0x7F, self.list[2:])
+        __tag_number = int(self[1]) & 0x7F
         for b in __subsequent_bytes:
             __tag_number = __tag_number << 7
             __tag_number += b
@@ -69,11 +69,11 @@ class Tag(ByteString):
 
     @property
     def class_(self) -> TagClass:
-        return TagClass(self.int_list[0] & 0xC0)
+        return TagClass(self.list[0] & 0xC0)
 
     @property
     def construction(self) -> TagConstruction:
-        return TagConstruction(self.int_list[0] & 0x20)
+        return TagConstruction(self.list[0] & 0x20)
 
     @property
     def number(self) -> int:
