@@ -257,6 +257,13 @@ class HexString(UserString):
     # def join(self, seq: Iterable[HexString]) -> HexString:
     #     return reduce(__add__, seq)
 
+    @property
+    def bytestring(self) -> ByteString:
+        if len(self) % 2 == 0:
+            return ByteString(str(self))
+        else:
+            return ByteString('0' + str(self))
+
 
 # 'ByteString' class
 class ByteString(HexString):
@@ -273,7 +280,7 @@ class ByteString(HexString):
         elif isinstance(value, bytes):
             value_string = ''.join([format(b, '02X') for b in value])
         elif isinstance(value, list):
-            value_string = ''.join([format(b, '02X') for b in value])
+            value_string = ''.join([format(int(b), '02X') for b in value])
         else:
             raise TypeError(
                 F"ByteString()| unsupported initializer type: {type(value)}")
