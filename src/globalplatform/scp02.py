@@ -28,7 +28,7 @@ def mac(C_MAC_SK: ByteString, data: ByteString, iv: ByteString = ByteString('00'
     if len(block) % 8 != 0:
         block += '00' * (8 - len(block) % 8)
 
-    mac = mac_2_ede(C_MAC_SK, block)
+    mac = mac_2_ede(C_MAC_SK, block, iv=iv)
 
     return mac
 
