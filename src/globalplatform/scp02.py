@@ -22,13 +22,25 @@ class SecurityLevel(StrEnum):
     C_DECRYPTIONandC_MACandR_MAC = '13'
 
 
-# CARD AUTHENTICATION CRYPTOGRAM
-def card_challenge(C_MAC_SK: ByteString, AID: ByteString) -> ByteString:
-    block = AID + '80'
+# MAC
+def mac(C_MAC_SK: ByteString, data: ByteString) -> ByteString:
+    block = data + '80'
     if len(block) % 8 != 0:
         block += '00' * (8 - len(block) % 8)
+
     mac = mac_2_ede(C_MAC_SK, block)
-    return mac[0:6]
+
+    return mac
+
+
+# Secure# CARD AUTHENTICATION CRYPTOGRAM
+def card_challenge(C_MAC_SK: ByteString, AID: ByteString) -> ByteString:
+    return mac(C_MAC_SK, AID)[0:6]
+    # block = AID + '80'
+    # if len(block) % 8 != 0:
+    #     block += '00' * (8 - len(block) % 8)
+    # mac = mac_2_ede(C_MAC_SK, block)
+    # return mac[0:6]
 
 
 def card_cryptogram(S_ENC_SK: ByteString, host_challenge: ByteString, sequence_counter: ByteString, card_challenge: ByteString) -> ByteString:
@@ -46,7 +58,8 @@ def host_cryptogram(S_ENC_SK: ByteString, sequence_counter: ByteString, card_cha
 
 # HOST MAC
 def host_mac(C_MAC_SK: ByteString, host_cryptogram: ByteString) -> ByteString:
-    return mac_2_ede(C_MAC_SK, "8482010010" + host_cryptogram + '80' + '00' * 2)
+    return mac(C_MAC_SK, "8482010010" + host_cryptogram)
+    # return mac_2_ede(C_MAC_SK, "8482010010" + host_cryptogram + '80' + '00' * 2)
 
 
 #
