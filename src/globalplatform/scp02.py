@@ -23,7 +23,7 @@ class SecurityLevel(StrEnum):
 
 
 # MAC
-def mac(C_MAC_SK: ByteString, data: ByteString) -> ByteString:
+def mac(C_MAC_SK: ByteString, data: ByteString, iv: ByteString = ByteString('00'*8)) -> ByteString:
     block = data + '80'
     if len(block) % 8 != 0:
         block += '00' * (8 - len(block) % 8)

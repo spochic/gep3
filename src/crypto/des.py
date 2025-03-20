@@ -546,7 +546,7 @@ def key_check_value(key: ByteString, *, len=3) -> ByteString:
     return encrypt(key, ByteString('00' * 8))[0:len]
 
 
-def mac_1_e(key_8B: ByteString, block_8B_n: ByteString) -> ByteString:
+def mac_1_e(key_8B: ByteString, block_8B_n: ByteString, iv: ByteString = ByteString('00' * 8)) -> ByteString:
     """mac_1_e(): single DES MAC generation
     """
     # checking inputs
@@ -557,14 +557,14 @@ def mac_1_e(key_8B: ByteString, block_8B_n: ByteString) -> ByteString:
         raise ValueError(
             F"Expected blocks of 8 bytes, received {len(block_8B_n)}: {block_8B_n}")
 
-    temp = ByteString('00' * 8)
+    temp = iv
     for block in block_8B_n.blocks(8):
         temp = dea_e(key_8B, temp ^ block)
 
     return temp
 
 
-def mac_2_ede(key_16B: ByteString, block_8B_n: ByteString) -> ByteString:
+def mac_2_ede(key_16B: ByteString, block_8B_n: ByteString, iv: ByteString = ByteString('00' * 8)) -> ByteString:
     """mac_2_ede(): double DES MAC generation
     """
     # checking inputs
@@ -578,7 +578,7 @@ def mac_2_ede(key_16B: ByteString, block_8B_n: ByteString) -> ByteString:
     key__key_1 = key_16B[0:8]
     key__key_2 = key_16B[8:16]
 
-    mac = mac_1_e(key__key_1, block_8B_n)
+    mac = mac_1_e(key__key_1, block_8B_n, iv=iv)
     mac = dea_d(key__key_2, mac)
     mac = dea_e(key__key_1, mac)
 
