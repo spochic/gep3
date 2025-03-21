@@ -10,6 +10,7 @@ from functools import reduce
 from operator import __add__, __xor__, __and__, __or__, __lshift__, __rshift__
 import sys as _sys
 from array import array
+import json
 
 # Third party imports
 
@@ -68,6 +69,18 @@ def _bitwise_operation(left, right, op):
             fmt = 'X'
 
     return ''.join(([format(op(int(l), int(r)), fmt) for l, r in zip(*_align_string(left, right))]))
+
+
+class BinaryEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, HexString):
+            return str(obj)
+        else:
+            return super().default(obj)
+
+
+def json_dumps(obj):
+    return json.dumps(obj, cls=BinaryEncoder)
 
 
 # 'BitString' class
